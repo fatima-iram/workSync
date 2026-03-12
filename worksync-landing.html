@@ -1,0 +1,1637 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>WorkSync – Explore Your Work Universe</title>
+<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=VT323&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg:       #1a0a2e;
+  --bg2:      #120820;
+  --bg3:      #0d0618;
+  --red:      #ff2d6b;
+  --red-dim:  #c4174f;
+  --red-dark: #3a0820;
+  --blue:     #3a7bd5;
+  --blue-bright: #5ab4ff;
+  --cyan:     #00e5ff;
+  --teal:     #00b4cc;
+  --pink:     #ff6b9d;
+  --purple:   #6a2ea0;
+  --text:     #ffd6e7;
+  --pixel: 2px;
+}
+
+html { scroll-behavior: smooth; }
+
+body {
+  font-family: 'Press Start 2P', monospace;
+  background: var(--bg);
+  color: var(--text);
+  overflow-x: hidden;
+  cursor: none;
+  padding-bottom: 38px;
+}
+
+/* ── SCANLINES overlay ── */
+body::after {
+  content:'';
+  position: fixed; inset:0; z-index:9998;
+  background: repeating-linear-gradient(
+    0deg,
+    rgba(0,0,0,0.15) 0px,
+    rgba(0,0,0,0.15) 1px,
+    transparent 1px,
+    transparent 3px
+  );
+  pointer-events:none;
+}
+
+/* ── CURSOR ── */
+#cur {
+  position:fixed; width:14px; height:14px;
+  border:2px solid var(--red);
+  pointer-events:none; z-index:9999;
+  transform:translate(-50%,-50%);
+  image-rendering:pixelated;
+  box-shadow: 0 0 6px var(--red), 0 0 14px var(--red-dim);
+}
+#cur::after {
+  content:''; position:absolute;
+  top:50%; left:50%; width:4px; height:4px;
+  background:var(--red);
+  transform:translate(-50%,-50%);
+}
+
+/* ── NAV ── */
+nav {
+  display:flex; align-items:center; justify-content:space-between;
+  padding:0 28px;
+  height:52px;
+  background: linear-gradient(180deg, #200040 0%, #0d0618 100%);
+  border-bottom:3px solid var(--red);
+  position:sticky; top:0; z-index:200;
+  box-shadow:
+    0 3px 0 #7a0028,
+    0 6px 40px rgba(255,45,107,0.5),
+    inset 0 1px 0 rgba(255,107,157,0.2),
+    inset 0 -1px 0 rgba(0,229,255,0.1);
+  animation: navIn 0.5s steps(8) both;
+  overflow:hidden;
+}
+/* vertical pixel columns in background */
+nav::before {
+  content:''; position:absolute; inset:0;
+  background:
+    repeating-linear-gradient(
+      90deg,
+      rgba(255,45,107,0.06) 0px, rgba(255,45,107,0.06) 1px,
+      transparent 1px, transparent 32px
+    ),
+    repeating-linear-gradient(
+      0deg,
+      rgba(0,229,255,0.03) 0px, rgba(0,229,255,0.03) 1px,
+      transparent 1px, transparent 16px
+    );
+  pointer-events:none;
+}
+/* rainbow pulse line at bottom */
+nav::after {
+  content:''; position:absolute; bottom:0; left:0; right:0; height:3px;
+  background: linear-gradient(90deg,
+    var(--red), var(--pink), var(--cyan), var(--pink), var(--red),
+    var(--pink), var(--cyan), var(--pink), var(--red));
+  background-size:300% 100%;
+  animation:navLine 2.5s linear infinite;
+  box-shadow: 0 0 8px var(--red), 0 0 16px rgba(255,45,107,0.4);
+}
+@keyframes navLine { 0%{background-position:0% 0} 100%{background-position:300% 0} }
+@keyframes navIn { from{transform:translateY(-100%)} to{transform:translateY(0)} }
+
+.logo {
+  display:flex; align-items:center; gap:10px;
+  font-family:'Press Start 2P',monospace;
+  font-size:13px; color:var(--red);
+  text-shadow: 2px 2px 0 #7a0028, 0 0 14px var(--red), 0 0 28px rgba(255,45,107,0.4);
+  letter-spacing:1px;
+  position:relative;
+}
+/* blinking cursor after logo text */
+.logo::after {
+  content:'_';
+  color:var(--cyan);
+  text-shadow:0 0 8px var(--cyan);
+  animation:blink 1s steps(1) infinite;
+  margin-left:2px;
+}
+.logo-pixel {
+  width:30px; height:30px;
+  background: linear-gradient(135deg, #3a0820, #1a0010);
+  border:2px solid var(--red);
+  display:flex; align-items:center; justify-content:center;
+  box-shadow: 2px 2px 0 #7a0028, 0 0 12px var(--red), inset 0 0 8px rgba(255,45,107,0.2);
+  animation: logoFlicker 4s steps(1) infinite;
+  padding:2px;
+}
+@keyframes logoFlicker {
+  0%,93%,97%,100%{opacity:1; box-shadow:2px 2px 0 #7a0028, 0 0 12px var(--red)}
+  94%,96%{opacity:0.2; box-shadow:none}
+  95%{opacity:1; box-shadow:2px 2px 0 #7a0028, 0 0 24px var(--red), 0 0 40px var(--red)}
+}
+
+/* status dot – blinking green online indicator */
+.nav-status {
+  display:flex; align-items:center; gap:6px;
+  font-family:'VT323',monospace; font-size:14px;
+  color:rgba(110,231,183,0.7); letter-spacing:1px;
+}
+.nav-dot {
+  width:8px; height:8px; border-radius:0;
+  background:#6ee7b7;
+  box-shadow:0 0 6px #6ee7b7, 0 0 12px rgba(110,231,183,0.5);
+  animation:dotBlink 1.4s steps(1) infinite;
+}
+@keyframes dotBlink { 0%,49%{opacity:1;background:#6ee7b7} 50%,100%{opacity:0.2;background:#2a5a40} }
+
+nav ul { list-style:none; display:flex; gap:2px; align-items:center; }
+nav ul li { position:relative; }
+nav ul a {
+  font-family:'VT323',monospace; font-size:18px;
+  color:rgba(255,214,231,0.55); text-decoration:none; letter-spacing:2px;
+  padding:6px 12px;
+  display:block;
+  border:1px solid transparent;
+  transition:color 0.1s, text-shadow 0.1s, background 0.1s, border-color 0.1s;
+  position:relative;
+}
+nav ul a::before {
+  content:''; position:absolute; bottom:0; left:50%; right:50%;
+  height:2px; background:var(--red);
+  transition:left 0.15s, right 0.15s;
+  box-shadow:0 0 6px var(--red);
+}
+nav ul a:hover {
+  color:var(--red);
+  text-shadow: 0 0 10px var(--red), 0 0 20px var(--red-dim);
+  background:rgba(255,45,107,0.1);
+  border-color:rgba(255,45,107,0.3);
+}
+nav ul a:hover::before { left:8px; right:8px; }
+nav ul a.active {
+  color:var(--cyan);
+  text-shadow: 0 0 10px var(--cyan), 0 0 20px rgba(0,229,255,0.4);
+  background:rgba(0,229,255,0.07);
+  border-color:rgba(0,229,255,0.3);
+}
+nav ul a.active::before { left:8px; right:8px; background:var(--cyan); box-shadow:0 0 6px var(--cyan); }
+
+/* pixel separators between nav items */
+nav ul li:not(:last-child)::after {
+  content:'·';
+  position:absolute; right:-3px; top:50%; transform:translateY(-50%);
+  color:rgba(255,45,107,0.3); font-size:18px;
+  font-family:'VT323',monospace;
+}
+
+/* pixel corner brackets on nav edges */
+.nav-bracket {
+  font-family:'VT323',monospace; font-size:26px;
+  color:var(--red);
+  text-shadow:0 0 8px var(--red), 0 0 16px rgba(255,45,107,0.4);
+  letter-spacing:-2px;
+  animation:bracketPulse 2s steps(1) infinite;
+  user-select:none;
+}
+@keyframes bracketPulse {
+  0%,49%{opacity:0.4; text-shadow:0 0 4px var(--red)}
+  50%,100%{opacity:1; text-shadow:0 0 12px var(--red), 0 0 24px rgba(255,45,107,0.5)}
+}
+
+/* ── HERO ── */
+.hero {
+  display:grid; grid-template-columns:1fr 1fr;
+  height:calc(100vh - 52px - 38px);
+  position:relative; overflow:hidden;
+  background: radial-gradient(ellipse at 65% 40%, #2a0840 0%, #1a0a2e 40%, #0d0618 100%);
+}
+
+/* pixel grid bg */
+.hero::before {
+  content:''; position:absolute; inset:0; z-index:0;
+  background-image:
+    linear-gradient(rgba(255,45,107,0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,45,107,0.03) 1px, transparent 1px);
+  background-size: 32px 32px;
+  pointer-events:none;
+}
+
+/* ── HERO LEFT ── */
+.hero-left {
+  padding:40px 36px 40px 52px;
+  display:flex; flex-direction:column; justify-content:center;
+  position:relative; z-index:3;
+  animation: fadeInLeft 0.6s steps(12) 0.3s both;
+}
+@keyframes fadeInLeft { from{opacity:0;transform:translateX(-20px)} to{opacity:1;transform:translateX(0)} }
+
+.brand-tag {
+  font-family:'VT323',monospace; font-size:22px;
+  color:var(--pink); letter-spacing:3px;
+  margin-bottom:10px;
+  display:flex; align-items:center; gap:8px;
+}
+.brand-tag::before {
+  content:'[💻]';
+  color:var(--red);
+  text-shadow: 0 0 8px var(--red);
+  animation: blink 1.2s steps(1) infinite;
+}
+@keyframes blink { 0%,49%{opacity:1} 50%,100%{opacity:0} }
+
+h1 {
+  font-family:'Press Start 2P',monospace;
+  font-size:clamp(20px,3.2vw,34px);
+  line-height:1.6; margin-bottom:20px;
+  letter-spacing:-1px;
+}
+.h1-l1 { color:var(--text); display:block; text-shadow:3px 3px 0 var(--purple); }
+.h1-l2 {
+  display:block;
+  color:var(--red);
+  text-shadow: 3px 3px 0 #7a0028, 0 0 20px var(--red), 0 0 40px var(--red-dim);
+  animation: redGlow 2s ease-in-out infinite alternate;
+}
+@keyframes redGlow {
+  from{text-shadow:3px 3px 0 #7a0028, 0 0 10px var(--red)}
+  to{text-shadow:3px 3px 0 #7a0028, 0 0 24px var(--red), 0 0 48px var(--red-dim)}
+}
+.h1-l3 { display:block; color:var(--blue-bright); text-shadow:3px 3px 0 #0a2860; }
+
+.hero-sub {
+  font-family:'VT323',monospace;
+  font-size:20px; line-height:1.7;
+  color:rgba(255,214,231,0.65);
+  max-width:380px; margin-bottom:36px;
+  letter-spacing:1px;
+}
+
+/* CTA – styled like a pixel dialog box */
+.cta {
+  display:inline-flex; align-items:center; gap:10px;
+  padding:14px 26px;
+  background:var(--red);
+  color:#fff;
+  font-family:'Press Start 2P',monospace; font-size:11px;
+  text-decoration:none; letter-spacing:1px;
+  border:none;
+  outline: 2px solid #fff;
+  outline-offset:-4px;
+  box-shadow: 4px 4px 0 #7a0028, 0 0 20px var(--red), 0 0 40px rgba(255,45,107,0.3);
+  cursor:none; width:fit-content;
+  position:relative; overflow:hidden;
+  transition:transform 0.1s steps(2), box-shadow 0.1s;
+}
+.cta::before {
+  content:''; position:absolute;
+  top:0; left:-100%; width:60%; height:100%;
+  background:rgba(255,255,255,0.2);
+  transform:skewX(-20deg);
+  animation:ctaShine 3s ease-in-out infinite;
+}
+@keyframes ctaShine { 0%{left:-100%} 100%{left:200%} }
+.cta:hover { transform:translate(-3px,-3px); box-shadow:7px 7px 0 #7a0028, 0 0 30px var(--red); }
+
+/* ── HERO RIGHT ── */
+.hero-right {
+  position:relative; overflow:visible; z-index:2;
+}
+
+/* Big dark purple space zone */
+.space-zone {
+  position:absolute;
+  top:-40px; right:-40px;
+  width:520px; height:460px;
+  background: radial-gradient(ellipse at 48% 42%,
+    #2a0840 0%, #1a0530 30%, #0d0320 65%, transparent 90%);
+  border-radius:50% 44% 58% 42% / 46% 54% 46% 54%;
+  animation:zoneMorph 10s ease-in-out infinite;
+  z-index:1;
+}
+@keyframes zoneMorph {
+  0%,100%{border-radius:50% 44% 58% 42% / 46% 54% 46% 54%}
+  33%{border-radius:55% 45% 42% 58% / 52% 42% 58% 48%}
+  66%{border-radius:42% 58% 52% 48% / 58% 46% 54% 42%}
+}
+
+/* ── PIXEL WINDOWS floating in space ── */
+.pwin {
+  position:absolute; z-index:8;
+  background:var(--bg3);
+  border:2px solid var(--red-dim);
+  box-shadow: 2px 2px 0 #7a0028, 0 0 10px rgba(255,45,107,0.3);
+  font-family:'VT323',monospace;
+  animation:winFloat var(--d,5s) ease-in-out infinite var(--dl,0s);
+}
+@keyframes winFloat {
+  0%,100%{transform:translateY(0) rotate(var(--r,0deg))}
+  50%{transform:translateY(var(--ty,-12px)) rotate(calc(var(--r,0deg)+var(--rs,2deg)))}
+}
+.pwin-bar {
+  background:var(--red-dark);
+  border-bottom:2px solid var(--red-dim);
+  padding:3px 6px;
+  display:flex; align-items:center; justify-content:space-between;
+  font-size:10px; color:var(--red); letter-spacing:1px;
+}
+.pwin-bar span { font-size:10px; color:var(--pink); }
+.pwin-body { padding:8px 10px; font-size:14px; color:var(--text); letter-spacing:1px; }
+
+/* Priority card */
+.pri-card {
+  position:absolute; top:70px; right:12px;
+  width:230px; z-index:10;
+  background:var(--bg3);
+  border:2px solid var(--red);
+  box-shadow: 4px 4px 0 #7a0028, 0 0 16px rgba(255,45,107,0.5);
+  animation:winFloat 3.8s ease-in-out infinite;
+  --d:3.8s; --r:1deg; --rs:-1deg; --ty:-14px;
+}
+.pri-card .pwin-bar { background:#3a0820; }
+
+.pri-row {
+  display:flex; align-items:center; gap:8px;
+  padding:8px 10px; border-bottom:1px solid rgba(255,45,107,0.2);
+  font-size:12px; color:var(--text); letter-spacing:1px;
+}
+.pri-row:last-child{border-bottom:none}
+.pchk {
+  width:18px; height:18px; border:2px solid var(--red-dim);
+  display:flex; align-items:center; justify-content:center;
+  font-size:10px; flex-shrink:0;
+}
+.pri-row.r-high .pchk { background:var(--red); border-color:var(--red); box-shadow:0 0 6px var(--red); color:#fff; }
+.pri-row.r-med .pchk  { background:var(--red-dark); border-color:var(--pink); color:var(--pink); }
+.pri-row.r-low .pchk  { background:transparent; border-color:rgba(255,45,107,0.4); color:rgba(255,45,107,0.4); }
+.chk-mark { margin-left:auto; color:var(--pink); font-size:12px; }
+
+/* ── GHOST CREATURES ── */
+.ghost {
+  position:absolute; z-index:8;
+  animation:ghostHover var(--d,4s) ease-in-out infinite var(--dl,0s);
+  filter:drop-shadow(0 0 12px var(--cyan)) drop-shadow(0 0 4px #fff);
+}
+@keyframes ghostHover {
+  0%,100%{transform:translateY(0) scaleX(var(--sx,1))}
+  50%{transform:translateY(-16px) scaleX(var(--sx,1))}
+}
+
+/* ── FLOATING PIXEL ICONS ── */
+.picon {
+  position:absolute; z-index:7; font-family:'VT323',monospace;
+  font-size:var(--fs,16px); color:var(--red);
+  text-shadow:0 0 6px var(--red);
+  animation:piconDrift var(--d,5s) ease-in-out infinite var(--dl,0s);
+}
+@keyframes piconDrift {
+  0%,100%{transform:translate(0,0) rotate(var(--r,0deg))}
+  50%{transform:translate(var(--tx,8px),var(--ty,-10px)) rotate(calc(var(--r,0deg)+6deg))}
+}
+
+/* Stars */
+.px-star {
+  position:absolute; z-index:4;
+  background:var(--sc,#fff);
+  animation:pxTwinkle var(--d,2s) steps(2) infinite var(--dl,0s);
+}
+@keyframes pxTwinkle { 0%,100%{opacity:1} 50%{opacity:0} }
+
+/* Orbit paths */
+.orbit-svg {
+  position:absolute; inset:0; width:100%; height:100%;
+  pointer-events:none; z-index:3; overflow:visible;
+}
+
+/* ── RED NOTIFICATION BAR ── */
+.notif-bar {
+  position:absolute; top:46%; left:50%;
+  transform:translate(-50%,-50%) translateX(-80px);
+  z-index:12; width:310px;
+  background:var(--red);
+  border:2px solid #fff;
+  box-shadow: 4px 4px 0 #7a0028, 0 0 24px var(--red), 0 0 50px rgba(255,45,107,0.4);
+  padding:12px 14px;
+  font-family:'VT323',monospace; font-size:18px;
+  color:#fff; line-height:1.5; letter-spacing:1px;
+  text-align:center;
+  animation:notifPulse 3s ease-in-out infinite;
+}
+.notif-bar::before {
+  content:'[!] ALERT'; display:block;
+  font-size:11px; font-family:'Press Start 2P',monospace;
+  color:rgba(255,255,255,0.7); margin-bottom:6px;
+  letter-spacing:2px;
+}
+@keyframes notifPulse {
+  0%,100%{box-shadow:4px 4px 0 #7a0028, 0 0 14px var(--red)}
+  50%{box-shadow:4px 4px 0 #7a0028, 0 0 30px var(--red), 0 0 60px rgba(255,45,107,0.4)}
+}
+
+/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+   HOW SECTION
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+.how-section {
+  background:var(--bg2);
+  border-top:3px solid var(--red-dim);
+  padding:0 52px 38px;
+  position:relative; overflow:hidden;
+  min-height:calc(100vh - 38px);
+  display:flex; flex-direction:column; justify-content:center;
+  scroll-snap-align:start;
+}
+
+/* scanline on section too */
+.how-section::before {
+  content:'';position:absolute;inset:0;z-index:0;
+  background-image:
+    linear-gradient(rgba(255,45,107,0.04) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,45,107,0.04) 1px, transparent 1px);
+  background-size:32px 32px;pointer-events:none;
+}
+
+/* ticker banner – fixed to bottom of viewport */
+.ticker-wrap {
+  position:fixed; bottom:0; left:0; right:0; z-index:300;
+  height:38px; background:var(--red);
+  border-top:2px solid var(--red-dim);
+  overflow:hidden; display:flex; align-items:center;
+  box-shadow: 0 -2px 0 #7a0028, 0 -4px 20px rgba(255,45,107,0.3);
+}
+.ticker {
+  display:flex; gap:60px; white-space:nowrap;
+  animation:tickerScroll 18s linear infinite;
+  font-family:'VT323',monospace; font-size:18px; color:#fff; letter-spacing:2px;
+}
+@keyframes tickerScroll { from{transform:translateX(0)} to{transform:translateX(-50%)} }
+
+.how-header { text-align:center; margin:0 0 50px; position:relative; z-index:1; }
+.how-title {
+  font-family:'Press Start 2P',monospace;
+  font-size:clamp(16px,2.8vw,28px);
+  color:var(--red); letter-spacing:2px; margin-bottom:12px;
+  text-shadow:3px 3px 0 #7a0028, 0 0 20px var(--red);
+}
+.how-sub {
+  font-family:'VT323',monospace; font-size:24px;
+  color:rgba(255,214,231,0.5); letter-spacing:2px;
+}
+
+.how-steps {
+  display:flex; align-items:flex-start; justify-content:center;
+  max-width:900px; margin:0 auto; position:relative; z-index:1;
+}
+
+.h-step {
+  flex:1; display:flex; flex-direction:column; align-items:center; text-align:center;
+  opacity:0; transform:translateY(20px);
+  transition:opacity 0.4s steps(8), transform 0.4s steps(8);
+}
+.h-step.vis{opacity:1;transform:none}
+.h-step:nth-child(1){transition-delay:0.1s}
+.h-step:nth-child(3){transition-delay:0.25s}
+.h-step:nth-child(5){transition-delay:0.4s}
+
+.h-icon-box {
+  width:160px; height:160px;
+  background:var(--bg3);
+  border:2px solid var(--red-dim);
+  box-shadow:4px 4px 0 #7a0028, 0 0 20px rgba(255,45,107,0.35);
+  display:flex; align-items:center; justify-content:center;
+  margin-bottom:22px; position:relative;
+  animation:iconBob 3s ease-in-out infinite;
+}
+.h-step:nth-child(3) .h-icon-box { animation-delay:0.6s; border-color:var(--teal); box-shadow:4px 4px 0 #003040, 0 0 20px rgba(0,180,204,0.4); }
+.h-step:nth-child(5) .h-icon-box { animation-delay:1.1s; border-color:var(--blue-bright); box-shadow:4px 4px 0 #001840, 0 0 20px rgba(90,180,255,0.4); }
+@keyframes iconBob {
+  0%,100%{transform:translateY(0)}
+  50%{transform:translateY(-10px)}
+}
+.h-icon-box::before {
+  content:''; position:absolute; top:-1px; left:4px; right:4px; height:2px;
+  background:var(--red-dim); opacity:0.6;
+}
+
+.h-icon-box svg { width:100px; height:100px; }
+
+.h-name {
+  font-family:'Press Start 2P',monospace; font-size:12px;
+  color:var(--red); letter-spacing:1px; margin-bottom:12px;
+  text-shadow:2px 2px 0 #7a0028;
+}
+.h-step:nth-child(3) .h-name { color:var(--teal); text-shadow:2px 2px 0 #003040; }
+.h-step:nth-child(5) .h-name { color:var(--blue-bright); text-shadow:2px 2px 0 #001840; }
+
+.h-desc { font-family:'VT323',monospace; font-size:20px; color:rgba(255,214,231,0.5); max-width:200px; line-height:1.6; letter-spacing:1px; }
+
+.h-arrow {
+  flex:0 0 60px; padding-bottom:80px;
+  display:flex; align-items:center; justify-content:center;
+  font-family:'Press Start 2P',monospace; font-size:20px;
+  color:var(--red-dim);
+  text-shadow: 0 0 10px var(--red-dim);
+  animation:arrowBlink 1.2s steps(1) infinite;
+}
+@keyframes arrowBlink { 0%,49%{opacity:1} 50%,100%{opacity:0.2} }
+
+/* ── FOOTER ── */
+footer {
+  border-top:2px solid var(--red-dim);
+  background:var(--bg3);
+  padding:18px 48px;
+  display:flex; align-items:center; justify-content:space-between;
+  font-family:'VT323',monospace; font-size:16px;
+  color:rgba(255,214,231,0.35); letter-spacing:1px;
+  box-shadow: 0 -2px 0 #7a0028;
+}
+.foot-logo {
+  display:flex; align-items:center; gap:8px;
+  color:var(--red-dim);
+  text-shadow:0 0 6px var(--red-dim);
+}
+</style>
+</head>
+<body>
+<div id="cur"></div>
+
+<!-- NAV -->
+<nav>
+  <div class="logo">
+    <div class="logo-pixel">
+    <svg width="18" height="18" viewBox="0 0 18 18" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <rect x="1" y="2" width="16" height="11" rx="1" fill="#3a0820" stroke="#ff2d6b" stroke-width="1.5"/>
+      <rect x="3" y="4" width="12" height="7" fill="#1a0010"/>
+      <rect x="5" y="13" width="8" height="2" fill="#ff2d6b" opacity="0.7"/>
+      <rect x="3" y="15" width="12" height="1.5" rx="0.5" fill="#ff2d6b"/>
+      <rect x="6" y="6" width="6" height="1" fill="rgba(255,45,107,0.5)"/>
+      <rect x="6" y="8" width="4" height="1" fill="rgba(255,45,107,0.3)"/>
+    </svg>
+  </div>
+    WORKSYNC
+  </div>
+  <span class="nav-bracket">[[</span>
+  <ul>
+    <li><a href="#" class="active" data-page="landing">HOME</a></li>
+    <li><a href="#how" id="nav-how" data-page="landing">HOW IT WORKS</a></li>
+    <li><a href="#" data-page="dashboard">DASHBOARD</a></li>
+    <li><a href="#" data-page="reminders">REMINDERS</a></li>
+  </ul>
+  <span class="nav-bracket">]]</span>
+  <div class="nav-status"><div class="nav-dot"></div>ONLINE</div>
+</nav>
+
+<!-- HERO -->
+<section class="hero">
+
+  <!-- LEFT TEXT -->
+  <div class="hero-left">
+    <p class="brand-tag">WORKSYNC.EXE</p>
+    <h1>
+      <span class="h1-l1">EXPLORE</span>
+      <span class="h1-l2">YOUR WORK</span>
+      <span class="h1-l3">UNIVERSE</span>
+    </h1>
+    <p class="hero-sub">AI that scans your emails & messages,<br>detects tasks, and organizes your<br>day automatically.</p>
+    <a href="#" class="cta">▶ START SYNCING</a>
+  </div>
+
+  <!-- RIGHT ILLUSTRATION -->
+  <div class="hero-right">
+    <div class="space-zone"></div>
+
+    <!-- Pixel stars -->
+    <div class="px-star" style="width:4px;height:4px;top:8%;right:35%;--sc:#fff;--d:1.8s;--dl:0s"></div>
+    <div class="px-star" style="width:2px;height:2px;top:15%;right:18%;--sc:var(--pink);--d:1.2s;--dl:.3s"></div>
+    <div class="px-star" style="width:4px;height:4px;top:25%;right:48%;--sc:#fff;--d:2.2s;--dl:.6s"></div>
+    <div class="px-star" style="width:2px;height:2px;top:38%;right:12%;--sc:var(--cyan);--d:1.5s;--dl:.9s"></div>
+    <div class="px-star" style="width:4px;height:4px;top:10%;right:28%;--sc:var(--pink);--d:2.5s;--dl:.2s"></div>
+    <div class="px-star" style="width:2px;height:2px;top:48%;right:40%;--sc:#fff;--d:1.3s;--dl:.5s"></div>
+    <div class="px-star" style="width:4px;height:4px;top:20%;right:8%;--sc:var(--pink);--d:2s;--dl:.8s"></div>
+    <div class="px-star" style="width:2px;height:2px;bottom:30%;left:14%;--sc:var(--cyan);--d:1.8s;--dl:.4s"></div>
+    <div class="px-star" style="width:4px;height:4px;bottom:18%;left:8%;--sc:#fff;--d:2.3s;--dl:.1s"></div>
+
+    <!-- Orbit SVG -->
+    <svg class="orbit-svg" viewBox="0 0 540 600" xmlns="http://www.w3.org/2000/svg">
+      <path d="M60 420 Q190 190 440 300" fill="none" stroke="rgba(255,45,107,0.4)" stroke-width="1.5" stroke-dasharray="6 6">
+        <animate attributeName="stroke-dashoffset" from="0" to="-24" dur="1.5s" repeatCount="indefinite"/>
+      </path>
+      <path d="M40 350 Q160 100 400 210 Q470 255 455 370" fill="none" stroke="rgba(0,229,255,0.25)" stroke-width="1" stroke-dasharray="4 8">
+        <animate attributeName="stroke-dashoffset" from="0" to="24" dur="2.5s" repeatCount="indefinite"/>
+      </path>
+      <path d="M110 500 Q270 475 365 372 Q425 308 405 205" fill="none" stroke="rgba(255,107,157,0.2)" stroke-width="1" stroke-dasharray="3 7">
+        <animate attributeName="stroke-dashoffset" from="0" to="-18" dur="2s" repeatCount="indefinite"/>
+      </path>
+    </svg>
+
+    <!-- Floating pixel windows -->
+    <div class="pwin" style="top:6%;left:10%;width:160px;--d:5.5s;--dl:.5s;--ty:-12px;--r:-2deg;--rs:3deg">
+      <div class="pwin-bar">AI.EXE <span>[×]</span></div>
+      <div class="pwin-body">
+        <div style="font-size:11px;color:var(--red);margin-bottom:4px">AI ▐▐▐▐▐░░░</div>
+        <div style="font-size:10px;color:var(--pink)">LOW BATTERY</div>
+      </div>
+    </div>
+
+    <div class="pwin" style="top:4%;right:6%;width:130px;--d:7s;--dl:0s;--ty:-10px;--r:2deg;--rs:-2deg">
+      <div class="pwin-bar">??? <span>[×]</span></div>
+      <div class="pwin-body" style="font-size:10px;color:rgba(255,107,157,0.6);line-height:1.8">WHAT AM I<br>DOING</div>
+    </div>
+
+    <div class="pwin" style="top:18%;left:6%;width:110px;--d:6s;--dl:1.5s;--ty:-9px;--r:-1deg">
+      <div class="pwin-bar">📅 <span>[×]</span></div>
+      <div class="pwin-body" style="font-size:13px;color:var(--cyan);text-align:center;line-height:1.6">MEET<br>AT 5</div>
+    </div>
+
+    <div class="pwin" style="top:28%;right:4%;width:190px;--d:6.5s;--dl:.8s;--ty:-11px;--r:1deg">
+      <div class="pwin-bar">BRAIN.EXE <span>[×]</span></div>
+      <div class="pwin-body" style="font-size:11px;line-height:2;color:var(--pink)">
+        PRODUCTIVITY: 20%<br>MOTIVATION: 40%
+      </div>
+    </div>
+
+    <!-- Priority card -->
+    <div class="pri-card">
+      <div class="pwin-bar">TASK_MGMT.EXE <span>[×]</span></div>
+      <div class="pri-row r-high">
+        <div class="pchk" id="chk0">✓</div>
+        <span>HIGH PRIORITY</span>
+        <span class="chk-mark">✓</span>
+      </div>
+      <div class="pri-row r-med">
+        <div class="pchk" id="chk1">◐</div>
+        <span>MEDIUM</span>
+        <span class="chk-mark">✓</span>
+      </div>
+      <div class="pri-row r-low">
+        <div class="pchk" id="chk2">○</div>
+        <span>LOW</span>
+      </div>
+    </div>
+
+    <!-- Notification bar (like the alarm in the image) -->
+    <div class="notif-bar">
+      Your sync is complete.<br>3 tasks detected from<br>your last 4 hours.
+    </div>
+
+    <!-- Ghost creatures (pixel, SVG) -->
+    <div class="ghost" style="bottom:60px;right:120px;--d:4s;--dl:0s;--sx:1">
+      <svg width="90" height="90" viewBox="0 0 44 44" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <!-- envelope body -->
+        <rect x="4" y="10" width="36" height="26" rx="2" fill="#1a3a6e" stroke="#5ab4ff" stroke-width="2"/>
+        <!-- envelope flap -->
+        <path d="M4 10 L22 24 L40 10" fill="none" stroke="#5ab4ff" stroke-width="2" stroke-linejoin="round"/>
+        <!-- pixel legs -->
+        <rect x="8" y="36" width="4" height="6" rx="1" fill="#3a7bd5"/>
+        <rect x="14" y="38" width="4" height="4" rx="1" fill="#3a7bd5"/>
+        <rect x="26" y="38" width="4" height="4" rx="1" fill="#3a7bd5"/>
+        <rect x="32" y="36" width="4" height="6" rx="1" fill="#3a7bd5"/>
+        <!-- pixel eyes on envelope -->
+        <rect x="13" y="18" width="5" height="5" rx="1" fill="#0d0618"/>
+        <rect x="26" y="18" width="5" height="5" rx="1" fill="#0d0618"/>
+        <rect x="14" y="19" width="2" height="2" fill="#00e5ff"/>
+        <rect x="27" y="19" width="2" height="2" fill="#00e5ff"/>
+        <!-- tiny arms -->
+        <rect x="0" y="18" width="5" height="3" rx="1" fill="#3a7bd5"/>
+        <rect x="39" y="18" width="5" height="3" rx="1" fill="#3a7bd5"/>
+        <!-- glow -->
+        <ellipse cx="22" cy="40" rx="18" ry="5" fill="rgba(90,180,255,0.12)"/>
+        <!-- antenna -->
+        <rect x="21" y="4" width="2" height="7" fill="#5ab4ff"/>
+        <rect x="19" y="2" width="6" height="3" rx="1" fill="#00e5ff"/>
+      </svg>
+    </div>
+
+    <div class="ghost" style="bottom:50px;right:20px;--d:4.5s;--dl:0.8s;--sx:-1">
+      <svg width="80" height="80" viewBox="0 0 44 44" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <!-- envelope body – slightly smaller/cuter variant -->
+        <rect x="5" y="12" width="34" height="24" rx="2" fill="#122a5e" stroke="#4a9adf" stroke-width="2"/>
+        <!-- flap -->
+        <path d="M5 12 L22 25 L39 12" fill="none" stroke="#4a9adf" stroke-width="2" stroke-linejoin="round"/>
+        <!-- sealed bottom crease -->
+        <line x1="5" y1="36" x2="39" y2="36" stroke="rgba(74,154,223,0.4)" stroke-width="1"/>
+        <!-- pixel legs -->
+        <rect x="9" y="36" width="4" height="5" rx="1" fill="#2d6bb8"/>
+        <rect x="15" y="37" width="3" height="3" rx="1" fill="#2d6bb8"/>
+        <rect x="26" y="37" width="3" height="3" rx="1" fill="#2d6bb8"/>
+        <rect x="31" y="36" width="4" height="5" rx="1" fill="#2d6bb8"/>
+        <!-- eyes -->
+        <rect x="13" y="20" width="5" height="5" rx="1" fill="#0d0618"/>
+        <rect x="26" y="20" width="5" height="5" rx="1" fill="#0d0618"/>
+        <rect x="14" y="21" width="2" height="2" fill="#4a9adf"/>
+        <rect x="27" y="21" width="2" height="2" fill="#4a9adf"/>
+        <!-- arms -->
+        <rect x="0" y="20" width="6" height="3" rx="1" fill="#2d6bb8"/>
+        <rect x="38" y="20" width="6" height="3" rx="1" fill="#2d6bb8"/>
+        <!-- stamp top-right corner -->
+        <rect x="30" y="14" width="7" height="6" rx="1" fill="#1a0030" stroke="rgba(74,154,223,0.5)" stroke-width="1"/>
+        <!-- glow -->
+        <ellipse cx="22" cy="40" rx="16" ry="4" fill="rgba(74,154,223,0.12)"/>
+        <!-- antenna -->
+        <rect x="21" y="6" width="2" height="7" fill="#4a9adf"/>
+        <rect x="18" y="4" width="8" height="3" rx="1" fill="#2d6bb8"/>
+      </svg>
+    </div>
+
+    <!-- Third mail bot – pink themed, sits between the other two -->
+    <div class="ghost" style="bottom:55px;right:215px;--d:3.8s;--dl:1.4s;--sx:1">
+      <svg width="75" height="75" viewBox="0 0 44 44" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <!-- envelope body -->
+        <rect x="4" y="11" width="36" height="25" rx="2" fill="#3a0830" stroke="#ff6b9d" stroke-width="2"/>
+        <!-- flap -->
+        <path d="M4 11 L22 24 L40 11" fill="none" stroke="#ff6b9d" stroke-width="2" stroke-linejoin="round"/>
+        <!-- pixel legs -->
+        <rect x="8" y="36" width="4" height="6" rx="1" fill="#c4174f"/>
+        <rect x="14" y="38" width="4" height="4" rx="1" fill="#c4174f"/>
+        <rect x="26" y="38" width="4" height="4" rx="1" fill="#c4174f"/>
+        <rect x="32" y="36" width="4" height="6" rx="1" fill="#c4174f"/>
+        <!-- pixel eyes -->
+        <rect x="13" y="19" width="5" height="5" rx="1" fill="#0d0618"/>
+        <rect x="26" y="19" width="5" height="5" rx="1" fill="#0d0618"/>
+        <rect x="14" y="20" width="2" height="2" fill="#ff2d6b"/>
+        <rect x="27" y="20" width="2" height="2" fill="#ff2d6b"/>
+        <!-- tiny arms -->
+        <rect x="0" y="19" width="5" height="3" rx="1" fill="#c4174f"/>
+        <rect x="39" y="19" width="5" height="3" rx="1" fill="#c4174f"/>
+        <!-- heart stamp on envelope -->
+        <text x="17" y="32" font-size="8" fill="#ff2d6b" font-family="monospace">♥</text>
+        <!-- glow -->
+        <ellipse cx="22" cy="41" rx="18" ry="5" fill="rgba(255,45,107,0.12)"/>
+        <!-- antenna -->
+        <rect x="21" y="4" width="2" height="8" fill="#ff6b9d"/>
+        <rect x="18" y="2" width="8" height="3" rx="1" fill="#ff2d6b"/>
+      </svg>
+    </div>
+
+
+    <!-- $, spiral, heart pixel icons -->
+    <div class="picon" style="top:12%;left:44%;--fs:32px;--d:5s;--dl:1s;--tx:10px;--ty:-14px;--r:-5deg">$</div>
+    <div class="picon" style="top:36%;left:8%;--fs:26px;--d:6s;--dl:.3s;--tx:-8px;--ty:-10px;--r:5deg;color:var(--pink);text-shadow:0 0 8px var(--pink)">@</div>
+    <div class="picon" style="bottom:35%;right:12%;--fs:24px;--d:4.5s;--dl:1.2s;--tx:6px;--ty:-8px;--r:-3deg;color:var(--cyan);text-shadow:0 0 8px var(--cyan)">♥</div>
+    <div class="picon" style="bottom:40%;left:4%;--fs:22px;--d:7s;--dl:.7s;--tx:-6px;--ty:-12px;color:var(--pink)">✉</div>
+    <div class="picon" style="top:55%;right:6%;--fs:18px;--d:5.5s;--dl:2s;--tx:8px;--ty:-8px;--r:8deg">▐░░</div>
+
+    <!-- Banner ribbon at top -->
+    <div style="
+      position:absolute; top:0; left:50%; transform:translateX(-50%);
+      background:var(--bg3); border:2px solid var(--red-dim);
+      border-top:none;
+      padding:6px 20px;
+      font-family:'VT323',monospace; font-size:18px;
+      color:var(--red); letter-spacing:3px;
+      box-shadow: 0 4px 0 #7a0028, 0 0 16px rgba(255,45,107,0.3);
+      z-index:10; white-space:nowrap;
+      text-shadow:0 0 8px var(--red);
+    ">▲ AGAIN AND AGAIN ▲</div>
+
+  </div><!-- /hero-right -->
+</section>
+
+<!-- HOW IT WORKS -->
+<section class="how-section" id="how">
+
+  <!-- Ticker -->
+  <div class="ticker-wrap">
+    <div class="ticker">
+      <span>▶ SCAN MESSAGES</span>
+      <span>★ DETECT TASKS</span>
+      <span>▶ ORGANIZE DAY</span>
+      <span>★ WORKSYNC.EXE</span>
+      <span>▶ SCAN MESSAGES</span>
+      <span>★ DETECT TASKS</span>
+      <span>▶ ORGANIZE DAY</span>
+      <span>★ WORKSYNC.EXE</span>
+    </div>
+  </div>
+
+  <div class="how-header">
+    <h2 class="how-title">// HOW WORKSYNC WORKS //</h2>
+    <p class="how-sub">[ EXPLORE THE FLOW OF PRODUCTIVITY ]</p>
+  </div>
+
+  <div class="how-steps">
+
+    <div class="h-step" data-step>
+      <div class="h-icon-box">
+        <svg viewBox="0 0 68 68" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <rect x="8" y="20" width="52" height="36" rx="3" fill="#0a1830" stroke="#ff2d6b" stroke-width="2"/>
+          <path d="M8 24l26 18 26-18" stroke="#ff2d6b" stroke-width="2"/>
+          <circle cx="20" cy="14" r="7" fill="#0a1830" stroke="#ff2d6b" stroke-width="1.5"/>
+          <circle cx="34" cy="11" r="5" fill="#0a1420" stroke="#ff6b9d" stroke-width="1.5"/>
+          <circle cx="48" cy="14" r="6" fill="#0a1420" stroke="#ff2d6b" stroke-width="1.5"/>
+          <line x1="17" y1="20" x2="14" y2="26" stroke="#ff2d6b" stroke-width="1.5" stroke-linecap="square"/>
+          <line x1="48" y1="20" x2="52" y2="26" stroke="#ff2d6b" stroke-width="1.5" stroke-linecap="square"/>
+          <!-- pixel lines in email -->
+          <rect x="16" y="36" width="18" height="2" rx="0" fill="rgba(255,45,107,0.35)"/>
+          <rect x="16" y="41" width="28" height="2" fill="rgba(255,45,107,0.25)"/>
+          <rect x="16" y="46" width="22" height="2" fill="rgba(255,45,107,0.2)"/>
+        </svg>
+      </div>
+      <div class="h-name">MSG SCANNER</div>
+      <div class="h-desc">reads emails and chats automatically</div>
+    </div>
+
+    <div class="h-arrow">►</div>
+
+    <div class="h-step" data-step>
+      <div class="h-icon-box">
+        <svg viewBox="0 0 68 68" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <rect x="10" y="12" width="30" height="32" rx="14" fill="#001820" stroke="#00b4cc" stroke-width="2"/>
+          <path d="M26 18c-7 0-12 5-12 13 0 4 2 8 5 10v6h14v-6c3-2 5-6 5-10 0-8-5-13-12-13z" fill="#001820" stroke="#00b4cc" stroke-width="1.5"/>
+          <!-- neural dots -->
+          <rect x="21" y="24" width="4" height="4" fill="#00e5ff">
+            <animate attributeName="opacity" values="1;0;1" dur="1s" repeatCount="indefinite"/>
+          </rect>
+          <rect x="29" y="28" width="3" height="3" fill="#00b4cc">
+            <animate attributeName="opacity" values="1;0;1" dur="0.8s" repeatCount="indefinite" begin="0.3s"/>
+          </rect>
+          <rect x="23" y="32" width="3" height="3" fill="#00e5ff">
+            <animate attributeName="opacity" values="1;0;1" dur="1.3s" repeatCount="indefinite" begin="0.6s"/>
+          </rect>
+          <!-- gear -->
+          <rect x="38" y="40" width="20" height="20" rx="10" fill="#001820" stroke="#00b4cc" stroke-width="1.8"/>
+          <rect x="44" y="46" width="8" height="8" rx="4" fill="#001a28" stroke="rgba(0,180,204,0.4)" stroke-width="1"/>
+          <rect x="47" y="37" width="3" height="4" fill="#00b4cc"/>
+          <rect x="47" y="59" width="3" height="4" fill="#00b4cc"/>
+          <rect x="36" y="47" width="4" height="3" fill="#00b4cc"/>
+          <rect x="58" y="47" width="4" height="3" fill="#00b4cc"/>
+        </svg>
+      </div>
+      <div class="h-name">AI DETECTION</div>
+      <div class="h-desc">NLP identifies tasks & deadlines</div>
+    </div>
+
+    <div class="h-arrow" style="color:rgba(0,180,204,0.4)">►</div>
+
+    <div class="h-step" data-step>
+      <div class="h-icon-box">
+        <svg viewBox="0 0 68 68" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <rect x="10" y="14" width="48" height="52" rx="3" fill="#001028" stroke="#5ab4ff" stroke-width="2"/>
+          <rect x="24" y="8" width="20" height="12" rx="3" fill="#001028" stroke="#5ab4ff" stroke-width="2"/>
+          <!-- row 1 red -->
+          <rect x="16" y="28" width="10" height="10" fill="#ff2d6b" stroke="#ff2d6b" stroke-width="1"/>
+          <path d="M18 33l2 2 4-4" stroke="#fff" stroke-width="1.5" stroke-linecap="square"/>
+          <rect x="30" y="30" width="24" height="2" fill="rgba(90,180,255,0.5)"/>
+          <!-- row 2 teal -->
+          <rect x="16" y="42" width="10" height="10" fill="#00b4cc" stroke="#00b4cc" stroke-width="1"/>
+          <path d="M18 47l2 2 4-4" stroke="#001028" stroke-width="1.5" stroke-linecap="square"/>
+          <rect x="30" y="44" width="20" height="2" fill="rgba(90,180,255,0.35)"/>
+          <!-- row 3 empty -->
+          <rect x="16" y="56" width="10" height="8" fill="transparent" stroke="rgba(90,180,255,0.3)" stroke-width="1"/>
+          <rect x="30" y="58" width="16" height="2" fill="rgba(90,180,255,0.2)"/>
+        </svg>
+      </div>
+      <div class="h-name">SMART DASH</div>
+      <div class="h-desc">organizes tasks by priority</div>
+    </div>
+
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════
+     DASHBOARD PAGE
+═══════════════════════════════════════ -->
+<section id="page-dashboard" class="page-section" style="display:none">
+  <div class="dash-wrap">
+
+    <!-- Header -->
+    <div class="dash-header">
+      <div>
+        <div class="dash-title">▌TASK DASHBOARD</div>
+        <div class="dash-sub">[ AI-DETECTED FROM YOUR INBOX ]</div>
+      </div>
+      <div style="display:flex;gap:12px;align-items:center">
+        <button class="dash-sync-btn" id="syncBtn" onclick="runSync()">
+          <span id="syncIcon">⟳</span> SYNC EMAILS
+        </button>
+        <div class="dash-filter">
+          <span style="font-family:'VT323',monospace;font-size:16px;color:rgba(255,214,231,0.5);letter-spacing:1px">FILTER:</span>
+          <button class="filt-btn active" data-filter="all" onclick="filterTasks('all',this)">ALL</button>
+          <button class="filt-btn" data-filter="High" onclick="filterTasks('High',this)">HIGH</button>
+          <button class="filt-btn" data-filter="Medium" onclick="filterTasks('Medium',this)">MED</button>
+          <button class="filt-btn" data-filter="Low" onclick="filterTasks('Low',this)">LOW</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Stats row -->
+    <div class="stats-row">
+      <div class="stat-card" style="--sc:var(--red);--sg:#3a0820">
+        <div class="stat-icon">🔴</div>
+        <div class="stat-val" id="stat-high">0</div>
+        <div class="stat-label">HIGH PRIORITY</div>
+        <div class="stat-bar"><div class="stat-fill" id="bar-high" style="background:var(--red);width:0%"></div></div>
+      </div>
+      <div class="stat-card" style="--sc:var(--pink);--sg:#2a1020">
+        <div class="stat-icon">🟡</div>
+        <div class="stat-val" id="stat-med">0</div>
+        <div class="stat-label">MEDIUM PRIORITY</div>
+        <div class="stat-bar"><div class="stat-fill" id="bar-med" style="background:var(--pink);width:0%"></div></div>
+      </div>
+      <div class="stat-card" style="--sc:var(--cyan);--sg:#001830">
+        <div class="stat-icon">🔵</div>
+        <div class="stat-val" id="stat-low">0</div>
+        <div class="stat-label">LOW PRIORITY</div>
+        <div class="stat-bar"><div class="stat-fill" id="bar-low" style="background:var(--cyan);width:0%"></div></div>
+      </div>
+      <div class="stat-card" style="--sc:#6ee7b7;--sg:#001a10">
+        <div class="stat-icon">✓</div>
+        <div class="stat-val" id="stat-done">0</div>
+        <div class="stat-label">COMPLETED</div>
+        <div class="stat-bar"><div class="stat-fill" id="bar-done" style="background:#6ee7b7;width:0%"></div></div>
+      </div>
+    </div>
+
+    <!-- Task list -->
+    <div class="task-list" id="taskList">
+      <!-- populated by JS -->
+    </div>
+
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════
+     REMINDERS PAGE
+═══════════════════════════════════════ -->
+<section id="page-reminders" class="page-section" style="display:none">
+  <div class="rem-wrap">
+
+    <div class="dash-header">
+      <div>
+        <div class="dash-title">▌REMINDERS</div>
+        <div class="dash-sub">[ SET ALERTS FOR YOUR TASKS ]</div>
+      </div>
+      <button class="dash-sync-btn" onclick="openNewReminder()">+ NEW REMINDER</button>
+    </div>
+
+    <!-- New reminder form -->
+    <div id="reminderForm" class="rem-form" style="display:none">
+      <div class="rem-form-title">▌ NEW REMINDER</div>
+      <div class="rem-form-grid">
+        <div class="rem-field">
+          <label class="rem-label">TASK NAME</label>
+          <input class="rem-input" id="remTitle" placeholder="e.g. SUBMIT REPORT" maxlength="50"/>
+        </div>
+        <div class="rem-field">
+          <label class="rem-label">DATE & TIME</label>
+          <input class="rem-input" id="remDateTime" type="datetime-local"/>
+        </div>
+        <div class="rem-field">
+          <label class="rem-label">PRIORITY</label>
+          <select class="rem-input rem-select" id="remPriority">
+            <option value="High">🔴 HIGH</option>
+            <option value="Medium" selected>🟡 MEDIUM</option>
+            <option value="Low">🔵 LOW</option>
+          </select>
+        </div>
+        <div class="rem-field">
+          <label class="rem-label">NOTE</label>
+          <input class="rem-input" id="remNote" placeholder="optional note..."/>
+        </div>
+      </div>
+      <div style="display:flex;gap:10px;margin-top:16px">
+        <button class="dash-sync-btn" onclick="saveReminder()">▶ SAVE</button>
+        <button class="dash-sync-btn" style="background:var(--bg3);border-color:rgba(255,45,107,0.3)" onclick="closeReminderForm()">✕ CANCEL</button>
+      </div>
+    </div>
+
+    <!-- Reminders list -->
+    <div id="remindersList" class="rem-list">
+      <!-- populated by JS -->
+    </div>
+
+  </div>
+</section>
+
+<style>
+/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━
+   PAGE SECTIONS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+.page-section {
+  min-height: calc(100vh - 52px - 38px);
+  background: var(--bg2);
+  padding: 36px 48px 60px;
+  position: relative;
+  overflow: hidden;
+}
+.page-section::before {
+  content:''; position:absolute; inset:0; pointer-events:none;
+  background-image:
+    linear-gradient(rgba(255,45,107,0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,45,107,0.03) 1px, transparent 1px);
+  background-size:32px 32px;
+}
+
+/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━
+   DASHBOARD
+━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+.dash-wrap { max-width:1100px; margin:0 auto; position:relative; z-index:1; }
+
+.dash-header {
+  display:flex; align-items:flex-start; justify-content:space-between;
+  margin-bottom:28px; flex-wrap:wrap; gap:14px;
+}
+.dash-title {
+  font-family:'Press Start 2P',monospace; font-size:18px;
+  color:var(--red); text-shadow:3px 3px 0 #7a0028, 0 0 16px var(--red);
+  letter-spacing:1px; margin-bottom:8px;
+}
+.dash-sub {
+  font-family:'VT323',monospace; font-size:20px;
+  color:rgba(255,214,231,0.45); letter-spacing:2px;
+}
+
+.dash-sync-btn {
+  font-family:'Press Start 2P',monospace; font-size:9px;
+  background:var(--red); color:#fff;
+  border:2px solid #fff; padding:10px 16px;
+  cursor:none; letter-spacing:1px;
+  box-shadow:3px 3px 0 #7a0028, 0 0 12px rgba(255,45,107,0.4);
+  transition:transform 0.1s, box-shadow 0.1s;
+  white-space:nowrap;
+}
+.dash-sync-btn:hover { transform:translate(-1px,-1px); box-shadow:4px 4px 0 #7a0028, 0 0 20px rgba(255,45,107,0.6); }
+.dash-sync-btn:active { transform:translate(2px,2px); box-shadow:1px 1px 0 #7a0028; }
+
+.dash-filter { display:flex; gap:6px; align-items:center; }
+.filt-btn {
+  font-family:'VT323',monospace; font-size:16px; letter-spacing:1px;
+  padding:4px 12px; cursor:none;
+  background:var(--bg3); color:rgba(255,214,231,0.5);
+  border:1px solid rgba(255,45,107,0.25);
+  transition:all 0.1s;
+}
+.filt-btn:hover { border-color:var(--red); color:var(--red); }
+.filt-btn.active { background:var(--red-dark); color:var(--red); border-color:var(--red); box-shadow:0 0 8px rgba(255,45,107,0.3); }
+
+/* Stats */
+.stats-row {
+  display:grid; grid-template-columns:repeat(4,1fr); gap:14px;
+  margin-bottom:28px;
+}
+.stat-card {
+  background:var(--bg3); border:2px solid var(--sc,var(--red-dim));
+  padding:18px; position:relative;
+  box-shadow: 3px 3px 0 rgba(0,0,0,0.5), 0 0 14px rgba(255,45,107,0.15);
+  transition: box-shadow 0.2s;
+}
+.stat-card:hover { box-shadow:3px 3px 0 rgba(0,0,0,0.5), 0 0 24px rgba(255,45,107,0.3); }
+.stat-icon { font-size:20px; margin-bottom:8px; }
+.stat-val {
+  font-family:'Press Start 2P',monospace; font-size:28px;
+  color:var(--sc,var(--red)); text-shadow:2px 2px 0 rgba(0,0,0,0.5);
+  margin-bottom:6px;
+}
+.stat-label { font-family:'VT323',monospace; font-size:14px; color:rgba(255,214,231,0.45); letter-spacing:1px; margin-bottom:12px; }
+.stat-bar { height:4px; background:rgba(255,255,255,0.06); width:100%; }
+.stat-fill { height:100%; transition:width 0.8s steps(16); }
+
+/* Task list */
+.task-list { display:flex; flex-direction:column; gap:10px; }
+
+.task-card {
+  background:var(--bg3); border:2px solid var(--tc,rgba(255,45,107,0.3));
+  padding:0; position:relative;
+  box-shadow: 3px 3px 0 rgba(0,0,0,0.5);
+  animation: cardIn 0.3s steps(6) both;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+.task-card:hover { border-color:var(--tc); box-shadow:3px 3px 0 rgba(0,0,0,0.5), 0 0 16px rgba(255,45,107,0.2); }
+@keyframes cardIn { from{opacity:0;transform:translateX(-8px)} to{opacity:1;transform:translateX(0)} }
+
+.task-card.done { opacity:0.45; }
+.task-card.done .task-subject { text-decoration:line-through; }
+
+.task-bar {
+  background:var(--tc,var(--red-dark));
+  padding:4px 12px; display:flex; align-items:center; justify-content:space-between;
+}
+.task-bar-label { font-family:'VT323',monospace; font-size:13px; color:rgba(255,255,255,0.6); letter-spacing:1px; }
+.task-priority-badge {
+  font-family:'Press Start 2P',monospace; font-size:8px;
+  padding:3px 7px; letter-spacing:1px;
+}
+.task-body { padding:14px 16px; display:grid; grid-template-columns:1fr auto; gap:12px; align-items:start; }
+.task-subject { font-family:'Press Start 2P',monospace; font-size:10px; color:var(--text); letter-spacing:0.5px; margin-bottom:6px; line-height:1.6; }
+.task-meta { font-family:'VT323',monospace; font-size:15px; color:rgba(255,214,231,0.5); letter-spacing:1px; line-height:1.8; }
+.task-deadline { color:var(--tc,var(--red)); }
+.task-actions { display:flex; flex-direction:column; gap:6px; }
+.task-btn {
+  font-family:'VT323',monospace; font-size:15px; letter-spacing:1px;
+  padding:5px 12px; cursor:none; white-space:nowrap;
+  border:1px solid rgba(255,45,107,0.35); background:transparent; color:rgba(255,214,231,0.6);
+  transition:all 0.1s;
+}
+.task-btn:hover { background:rgba(255,45,107,0.15); border-color:var(--red); color:var(--red); }
+.task-btn.done-btn { border-color:rgba(110,231,183,0.4); color:rgba(110,231,183,0.7); }
+.task-btn.done-btn:hover { background:rgba(110,231,183,0.1); border-color:#6ee7b7; color:#6ee7b7; }
+
+.empty-state {
+  text-align:center; padding:60px 20px;
+  font-family:'VT323',monospace; font-size:20px;
+  color:rgba(255,214,231,0.3); letter-spacing:2px;
+}
+.empty-icon { font-size:48px; margin-bottom:16px; opacity:0.4; }
+
+/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━
+   REMINDERS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+.rem-wrap { max-width:900px; margin:0 auto; position:relative; z-index:1; }
+
+.rem-form {
+  background:var(--bg3); border:2px solid var(--red-dim);
+  padding:24px; margin-bottom:24px;
+  box-shadow:4px 4px 0 #7a0028, 0 0 20px rgba(255,45,107,0.25);
+  animation: cardIn 0.3s steps(6) both;
+}
+.rem-form-title {
+  font-family:'Press Start 2P',monospace; font-size:12px;
+  color:var(--red); letter-spacing:1px; margin-bottom:18px;
+  text-shadow:2px 2px 0 #7a0028;
+}
+.rem-form-grid { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+.rem-field { display:flex; flex-direction:column; gap:6px; }
+.rem-label { font-family:'VT323',monospace; font-size:14px; color:rgba(255,214,231,0.5); letter-spacing:1px; }
+.rem-input {
+  font-family:'VT323',monospace; font-size:18px; letter-spacing:1px;
+  background:var(--bg2); color:var(--text);
+  border:2px solid rgba(255,45,107,0.3); padding:8px 10px;
+  outline:none; width:100%;
+  transition:border-color 0.2s;
+}
+.rem-input:focus { border-color:var(--red); box-shadow:0 0 8px rgba(255,45,107,0.3); }
+.rem-input::placeholder { color:rgba(255,214,231,0.25); }
+.rem-select { cursor:none; }
+.rem-select option { background:var(--bg3); }
+
+.rem-list { display:flex; flex-direction:column; gap:10px; }
+
+.rem-card {
+  background:var(--bg3); border:2px solid var(--rc,rgba(255,45,107,0.3));
+  display:grid; grid-template-columns:auto 1fr auto auto;
+  align-items:center; gap:16px; padding:14px 18px;
+  box-shadow:3px 3px 0 rgba(0,0,0,0.5);
+  animation: cardIn 0.3s steps(6) both;
+  transition:border-color 0.2s;
+}
+.rem-card:hover { border-color:var(--rc); }
+.rem-card.fired { opacity:0.4; }
+.rem-priority-dot {
+  width:12px; height:12px;
+  background:var(--rc,var(--red));
+  box-shadow:0 0 8px var(--rc,var(--red));
+  animation:dotBlink 1.4s steps(1) infinite;
+  flex-shrink:0;
+}
+.rem-card.fired .rem-priority-dot { animation:none; opacity:0.3; }
+.rem-title-text { font-family:'Press Start 2P',monospace; font-size:10px; color:var(--text); margin-bottom:5px; line-height:1.6; }
+.rem-meta { font-family:'VT323',monospace; font-size:16px; color:rgba(255,214,231,0.45); letter-spacing:1px; }
+.rem-countdown { font-family:'VT323',monospace; font-size:18px; color:var(--rc,var(--red)); letter-spacing:1px; min-width:100px; text-align:right; }
+.rem-del {
+  font-family:'VT323',monospace; font-size:18px; color:rgba(255,45,107,0.4);
+  cursor:none; padding:2px 8px; border:1px solid transparent;
+  transition:all 0.1s; background:transparent;
+}
+.rem-del:hover { color:var(--red); border-color:var(--red); background:rgba(255,45,107,0.1); }
+</style>
+
+<!-- FOOTER -->
+<footer>
+  <div class="foot-logo">
+    <span style="border:1.5px solid var(--red-dim);padding:2px 5px;display:inline-flex;align-items:center;">
+      <svg width="16" height="14" viewBox="0 0 18 18" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <rect x="1" y="2" width="16" height="11" rx="1" fill="#3a0820" stroke="#c4174f" stroke-width="1.5"/>
+        <rect x="3" y="4" width="12" height="7" fill="#1a0010"/>
+        <rect x="5" y="13" width="8" height="2" fill="#c4174f" opacity="0.7"/>
+        <rect x="3" y="15" width="12" height="1.5" rx="0.5" fill="#c4174f"/>
+      </svg>
+    </span>
+    WORKSYNC.EXE
+  </div>
+  <span>© 2026 WORKSYNC. ALL RIGHTS RESERVED.</span>
+  <span>PRIVACY · TERMS · CONTACT</span>
+</footer>
+
+<script>
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+//  CURSOR
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+const cur = document.getElementById('cur');
+let mx=0,my=0,cx=0,cy=0;
+document.addEventListener('mousemove', e=>{ mx=e.clientX; my=e.clientY; });
+(function anim(){
+  cx+=(mx-cx)*0.14; cy+=(my-cy)*0.14;
+  cur.style.left=cx+'px'; cur.style.top=cy+'px';
+  requestAnimationFrame(anim);
+})();
+function bindCursorHover(scope=document){
+  scope.querySelectorAll('a,button,.cta,.task-btn,.filt-btn,.rem-del,.dash-sync-btn').forEach(el=>{
+    el.addEventListener('mouseenter',()=>{ cur.style.transform='translate(-50%,-50%) scale(2)'; cur.style.borderColor='#fff'; });
+    el.addEventListener('mouseleave',()=>{ cur.style.transform='translate(-50%,-50%) scale(1)'; cur.style.borderColor='var(--red)'; });
+  });
+}
+bindCursorHover();
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+//  SCROLL REVEAL (landing page steps)
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+const steps = document.querySelectorAll('[data-step]');
+steps.forEach(s=>{
+  new IntersectionObserver(([e])=>{ if(e.isIntersecting) s.classList.add('vis'); },{threshold:0.2}).observe(s);
+});
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+//  PRIORITY CARD ANIMATION
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+const chks=[document.getElementById('chk0'),document.getElementById('chk1'),document.getElementById('chk2')];
+const marks=['✓','◐','○'];
+let t=0;
+setInterval(()=>{
+  t++;
+  chks.forEach((c,i)=>{ if(c) c.textContent = (t+i)%5===0 ? '×' : marks[i]; });
+}, 1400);
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+//  GLITCH
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+const glitchEl = document.querySelector('.h1-l2');
+if(glitchEl) setInterval(()=>{
+  glitchEl.style.transform='translateX(2px)';
+  setTimeout(()=>{ glitchEl.style.transform='translateX(-1px)'; },60);
+  setTimeout(()=>{ glitchEl.style.transform='translateX(0)'; },120);
+}, 3000);
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+//  API CONFIG
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+const API = 'http://localhost:5000/api';
+let backendOnline = false;
+
+// Check if backend is running
+async function checkBackend() {
+  try {
+    const r = await fetch(`${API}/status`, { signal: AbortSignal.timeout(2000) });
+    backendOnline = r.ok;
+  } catch { backendOnline = false; }
+  updateBackendStatus();
+}
+
+function updateBackendStatus() {
+  const dot = document.querySelector('.nav-dot');
+  const label = document.querySelector('.nav-status');
+  if (dot && label) {
+    dot.style.background = backendOnline ? '#6ee7b7' : '#ff2d6b';
+    dot.style.boxShadow  = backendOnline ? '0 0 6px #6ee7b7' : '0 0 6px #ff2d6b';
+    label.childNodes[label.childNodes.length-1].textContent = backendOnline ? 'ONLINE' : 'OFFLINE';
+  }
+}
+
+checkBackend();
+setInterval(checkBackend, 10000);
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+//  TASK DATA  (loaded from API or localStorage cache)
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+let tasks = JSON.parse(localStorage.getItem('ws_tasks') || '[]');
+let reminders = JSON.parse(localStorage.getItem('ws_reminders') || '[]');
+
+function saveTasks(){ try{ localStorage.setItem('ws_tasks', JSON.stringify(tasks)); }catch(e){} }
+function saveReminders(){ try{ localStorage.setItem('ws_reminders', JSON.stringify(reminders)); }catch(e){} }
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+//  PAGE ROUTING
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+const PAGES = {
+  landing: ['section.hero', 'section.how-section', 'footer'],
+  dashboard: ['#page-dashboard'],
+  reminders: ['#page-reminders'],
+};
+
+function showPage(page) {
+  // Hide all
+  document.querySelectorAll('section.hero, section.how-section, footer, .page-section').forEach(el => el.style.display='none');
+
+  if(page === 'landing'){
+    document.querySelector('section.hero').style.display='';
+    document.querySelector('section.how-section').style.display='';
+    document.querySelector('footer').style.display='';
+    window.scrollTo(0,0);
+  } else if(page === 'dashboard'){
+    document.getElementById('page-dashboard').style.display='';
+    renderDashboard();
+    window.scrollTo(0,0);
+  } else if(page === 'reminders'){
+    document.getElementById('page-reminders').style.display='';
+    renderReminders();
+    window.scrollTo(0,0);
+  }
+
+  // Update nav active
+  document.querySelectorAll('nav ul a').forEach(a => {
+    a.classList.toggle('active', a.dataset.page === page);
+  });
+}
+
+document.querySelectorAll('nav ul a').forEach(a => {
+  a.addEventListener('click', e => {
+    const page = a.dataset.page;
+    if(page === 'landing' && a.getAttribute('href') === '#how'){
+      showPage('landing');
+      setTimeout(()=>{ document.getElementById('how')?.scrollIntoView({behavior:'smooth'}); }, 80);
+      e.preventDefault(); return;
+    }
+    if(page){ e.preventDefault(); showPage(page); }
+  });
+});
+
+// Also wire CTA "START SYNCING" button → dashboard
+document.querySelector('.cta')?.addEventListener('click', e => {
+  e.preventDefault(); showPage('dashboard');
+});
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+//  DASHBOARD RENDER
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+let currentFilter = 'all';
+
+function priorityStyle(p){
+  if(p==='High') return { color:'var(--red)', bg:'rgba(255,45,107,0.12)', border:'rgba(255,45,107,0.5)', barColor:'#3a0820' };
+  if(p==='Medium') return { color:'var(--pink)', bg:'rgba(255,107,157,0.1)', border:'rgba(255,107,157,0.4)', barColor:'#2a0d1a' };
+  return { color:'var(--cyan)', bg:'rgba(0,229,255,0.08)', border:'rgba(0,229,255,0.35)', barColor:'#001828' };
+}
+
+function fmtDeadline(dl){
+  if(!dl) return '—';
+  const d = new Date(dl);
+  const now = new Date();
+  const diff = d - now;
+  const hrs = Math.round(diff/3600000);
+  if(diff < 0) return '⚠ OVERDUE';
+  if(hrs < 24) return `⏰ ${hrs}H LEFT`;
+  const days = Math.round(diff/86400000);
+  return `📅 ${d.toLocaleDateString('en-GB',{day:'2-digit',month:'short'})} (${days}D)`;
+}
+
+function renderDashboard(){
+  const high = tasks.filter(t=>t.priority==='High' && !t.done).length;
+  const med  = tasks.filter(t=>t.priority==='Medium' && !t.done).length;
+  const low  = tasks.filter(t=>t.priority==='Low' && !t.done).length;
+  const done = tasks.filter(t=>t.done).length;
+  const total = tasks.length;
+
+  document.getElementById('stat-high').textContent = high;
+  document.getElementById('stat-med').textContent  = med;
+  document.getElementById('stat-low').textContent  = low;
+  document.getElementById('stat-done').textContent = done;
+
+  setTimeout(()=>{
+    document.getElementById('bar-high').style.width = total ? (high/total*100)+'%' : '0%';
+    document.getElementById('bar-med').style.width  = total ? (med/total*100)+'%'  : '0%';
+    document.getElementById('bar-low').style.width  = total ? (low/total*100)+'%'  : '0%';
+    document.getElementById('bar-done').style.width = total ? (done/total*100)+'%' : '0%';
+  }, 100);
+
+  const filtered = currentFilter === 'all' ? tasks : tasks.filter(t => t.priority === currentFilter);
+  const list = document.getElementById('taskList');
+
+  if(!filtered.length){
+    const msg = tasks.length === 0
+      ? `<div class="empty-state"><div class="empty-icon">📬</div>NO TASKS YET<br><br><span style="font-size:14px;color:rgba(255,214,231,0.4)">CLICK "⟳ SYNC EMAILS" TO FETCH FROM GMAIL</span></div>`
+      : `<div class="empty-state"><div class="empty-icon">📭</div>NO TASKS MATCH THIS FILTER</div>`;
+    list.innerHTML = msg;
+    return;
+  }
+
+  // Sort: undone first, then by priority
+  const order = {High:0,Medium:1,Low:2};
+  const sorted = [...filtered].sort((a,b)=> a.done - b.done || order[a.priority]-order[b.priority]);
+
+  list.innerHTML = sorted.map((task,i) => {
+    const s = priorityStyle(task.priority);
+    const deadlineStr = fmtDeadline(task.deadline);
+    const isOverdue = deadlineStr.includes('OVERDUE');
+    return `
+    <div class="task-card ${task.done?'done':''}" style="--tc:${s.border};animation-delay:${i*0.05}s">
+      <div class="task-bar" style="background:${s.barColor}">
+        <span class="task-bar-label">FROM: ${task.sender}</span>
+        <span class="task-priority-badge" style="background:${s.bg};color:${s.color};border:1px solid ${s.border}">${task.priority.toUpperCase()}</span>
+      </div>
+      <div class="task-body">
+        <div>
+          <div class="task-subject">${task.subject}</div>
+          <div class="task-meta">
+            <span class="task-deadline" style="color:${isOverdue?'var(--red)':s.color}">${deadlineStr}</span>
+            &nbsp;·&nbsp; ID: ${task.id}
+          </div>
+        </div>
+        <div class="task-actions">
+          <button class="task-btn done-btn" onclick="toggleDone('${task.id}')">${task.done ? '↩ UNDO' : '✓ DONE'}</button>
+          <a href="https://mail.google.com/mail/u/0/#all/${task.id}" target="_blank" class="task-btn" style="text-align:center;text-decoration:none">✉ OPEN</a>
+          <button class="task-btn" onclick="addReminderForTask('${task.id}')">🔔 REMIND</button>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+
+  bindCursorHover(list);
+}
+
+function toggleDone(id){
+  const task = tasks.find(t=>t.id===id);
+  if(task){ task.done = !task.done; saveTasks(); renderDashboard(); }
+}
+
+function filterTasks(f, btn){
+  currentFilter = f;
+  document.querySelectorAll('.filt-btn').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  renderDashboard();
+}
+
+async function runSync(){
+  const btn = document.getElementById('syncBtn');
+  const icon = document.getElementById('syncIcon');
+  btn.disabled = true;
+
+  if (!backendOnline) {
+    icon.textContent = '✕';
+    const list = document.getElementById('taskList');
+    list.innerHTML = `<div class="empty-state">
+      <div class="empty-icon">🔌</div>
+      BACKEND OFFLINE<br><br>
+      <span style="font-size:14px;color:rgba(255,214,231,0.4)">
+        RUN: python api.py<br>IN YOUR PROJECT FOLDER
+      </span>
+    </div>`;
+    setTimeout(()=>{ icon.textContent='⟳'; btn.disabled=false; }, 2000);
+    return;
+  }
+
+  // Spin animation while waiting
+  let frames = ['⟳','↻','⟲','↺'], fi=0;
+  const spin = setInterval(()=>{ icon.textContent = frames[fi++ % frames.length]; }, 120);
+
+  try {
+    const res = await fetch(`${API}/sync`);
+    const data = await res.json();
+    clearInterval(spin);
+
+    if (data.success) {
+      // Merge: keep existing done states, add new tasks from API
+      const existingIds = new Set(tasks.map(t=>t.id));
+      const newTasks = data.tasks.map(t => ({
+        ...t,
+        done: tasks.find(e=>e.id===t.id)?.done || false
+      }));
+      // Add any truly new tasks not already in our list
+      newTasks.forEach(t => { if(!existingIds.has(t.id)) tasks.unshift(t); else {
+        const idx = tasks.findIndex(e=>e.id===t.id);
+        if(idx>=0) tasks[idx] = {...t, done: tasks[idx].done};
+      }});
+      // Replace tasks entirely with fresh data (preserving done state)
+      tasks = newTasks;
+      saveTasks();
+      icon.textContent = '✓';
+      renderDashboard();
+      bindCursorHover(document.getElementById('taskList'));
+    } else {
+      icon.textContent = '✕';
+      document.getElementById('taskList').innerHTML = `<div class="empty-state"><div class="empty-icon">⚠</div>ERROR: ${data.error}</div>`;
+    }
+  } catch(e) {
+    clearInterval(spin);
+    icon.textContent = '✕';
+    document.getElementById('taskList').innerHTML = `<div class="empty-state"><div class="empty-icon">⚠</div>COULD NOT REACH API<br><br><span style="font-size:14px;color:rgba(255,214,231,0.4)">RUN: python api.py</span></div>`;
+  }
+
+  setTimeout(()=>{ icon.textContent='⟳'; btn.disabled=false; }, 2500);
+}
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+//  REMINDERS
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+function priorityColor(p){
+  if(p==='High') return 'var(--red)';
+  if(p==='Medium') return 'var(--pink)';
+  return 'var(--cyan)';
+}
+
+function openNewReminder(){
+  const form = document.getElementById('reminderForm');
+  form.style.display = form.style.display==='none' ? '' : 'none';
+  // default datetime to 1 hour from now
+  const d = new Date(Date.now()+3600000);
+  document.getElementById('remDateTime').value = d.toISOString().slice(0,16);
+  bindCursorHover(form);
+}
+
+function closeReminderForm(){
+  document.getElementById('reminderForm').style.display='none';
+}
+
+function saveReminder(){
+  const title = document.getElementById('remTitle').value.trim();
+  const dt    = document.getElementById('remDateTime').value;
+  const pri   = document.getElementById('remPriority').value;
+  const note  = document.getElementById('remNote').value.trim();
+  if(!title || !dt){ alert('Please fill in task name and date/time.'); return; }
+  reminders.unshift({ id:'rem'+Date.now(), title, dt, priority:pri, note, fired:false });
+  saveReminders();
+  closeReminderForm();
+  document.getElementById('remTitle').value='';
+  document.getElementById('remNote').value='';
+  renderReminders();
+}
+
+function deleteReminder(id){
+  reminders = reminders.filter(r=>r.id!==id);
+  saveReminders();
+  renderReminders();
+}
+
+function addReminderForTask(taskId){
+  const task = tasks.find(t=>t.id===taskId);
+  if(!task) return;
+  reminders.unshift({
+    id:'rem'+Date.now(),
+    title: task.subject.slice(0,40)+'...',
+    dt: task.deadline || new Date(Date.now()+3600000).toISOString().slice(0,16),
+    priority: task.priority,
+    note: `From: ${task.sender}`,
+    fired: false
+  });
+  saveReminders();
+  showPage('reminders');
+}
+
+function fmtCountdown(dt){
+  const diff = new Date(dt) - new Date();
+  if(diff <= 0) return '⚠ FIRED';
+  const d = Math.floor(diff/86400000);
+  const h = Math.floor((diff%86400000)/3600000);
+  const m = Math.floor((diff%3600000)/60000);
+  if(d > 0) return `${d}D ${h}H`;
+  if(h > 0) return `${h}H ${m}M`;
+  return `${m}M`;
+}
+
+function renderReminders(){
+  const list = document.getElementById('remindersList');
+  if(!reminders.length){
+    list.innerHTML = `<div class="empty-state"><div class="empty-icon">🔔</div>NO REMINDERS SET<br><br>CLICK "NEW REMINDER" TO ADD ONE</div>`;
+    return;
+  }
+  const sorted = [...reminders].sort((a,b)=>new Date(a.dt)-new Date(b.dt));
+  list.innerHTML = sorted.map((r,i) => {
+    const c = priorityColor(r.priority);
+    const fired = new Date(r.dt) < new Date();
+    const countdown = fmtCountdown(r.dt);
+    const dtLabel = new Date(r.dt).toLocaleString('en-GB',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'});
+    return `
+    <div class="rem-card ${fired?'fired':''}" style="--rc:${c};animation-delay:${i*0.06}s">
+      <div class="rem-priority-dot" style="background:${c};box-shadow:0 0 8px ${c}"></div>
+      <div>
+        <div class="rem-title-text">${r.title}</div>
+        <div class="rem-meta">${dtLabel}${r.note ? ' · '+r.note : ''} · <span style="color:${c}">${r.priority.toUpperCase()}</span></div>
+      </div>
+      <div class="rem-countdown" style="color:${fired?'rgba(255,214,231,0.3)':c}">${countdown}</div>
+      <button class="rem-del" onclick="deleteReminder('${r.id}')">✕</button>
+    </div>`;
+  }).join('');
+  bindCursorHover(list);
+}
+
+// Live countdown tick
+setInterval(()=>{
+  if(document.getElementById('page-reminders')?.style.display !== 'none'){
+    document.querySelectorAll('.rem-countdown').forEach((el,i)=>{
+      const r = [...reminders].sort((a,b)=>new Date(a.dt)-new Date(b.dt))[i];
+      if(r) el.textContent = fmtCountdown(r.dt);
+    });
+  }
+}, 30000);
+
+// Nav scroll active on landing
+window.addEventListener('scroll', () => {
+  const activePage = document.getElementById('page-dashboard')?.style.display !== 'none' ? 'dashboard'
+    : document.getElementById('page-reminders')?.style.display !== 'none' ? 'reminders' : 'landing';
+  if(activePage !== 'landing') return;
+  const scrollY = window.scrollY + window.innerHeight/2;
+  const hero = document.querySelector('section.hero');
+  const how  = document.getElementById('how');
+  if(how && scrollY >= how.offsetTop) {
+    document.querySelectorAll('nav ul a').forEach(a=>a.classList.remove('active'));
+    document.querySelector('nav ul a[data-page="landing"]')?.classList.add('active');
+  }
+}, {passive:true});
+</script>
+</body>
+</html>
