@@ -5,6 +5,46 @@ from transformers import pipeline
 import re
 from bs4 import BeautifulSoup
 import json
+import edge_tts
+
+import asyncio
+import pygame
+import tempfile
+import os
+
+#Voice Assistant
+pygame.mixer.init()
+
+def speak(text): 
+    print("🔊", text)  # also print
+    
+    async def _speak():
+        with tempfile.NamedTemporaryFile(delete=False, suffix='.mp3') as f:
+            temp_path = f.name
+        
+        communicate = edge_tts.Communicate(text, voice="en-US-JennyNeural")
+        await communicate.save(temp_path)
+        
+        pygame.mixer.music.load(temp_path)
+        pygame.mixer.music.play()
+        
+        while pygame.mixer.music.get_busy():
+            pygame.time.Clock().tick(10)
+        
+        pygame.mixer.music.unload()
+        os.remove(temp_path)
+    
+    asyncio.run(_speak())
+    
+
+def speak_summary(tasks):
+    high = sum(1 for t in tasks if t["priority"] == "High Priority")
+    today = sum(1 for t in tasks if t["deadline"] == "Today")
+
+    speak(f"You have {len(tasks)} important emails.")
+    speak(f"{high} are high priority.")
+    speak(f"{today} have deadlines today.")
+
 
 # Gmail API permission
 SCOPES = ['https://www.googleapis.com/auth/gmail.readonly']
@@ -241,6 +281,9 @@ def main():
 
     print("\nAnalyzing Emails...\n")
 
+    tasks = [] 
+    speech_queue = []
+
     for email in emails:
 
         cleaned_email = clean_email(email["body"])
@@ -263,6 +306,19 @@ def main():
             "gmail_link": email["gmail_link"]
         }
 
+        tasks.append(task)
+
+        # 🗣️ SPEAK EACH EMAIL
+        message = (
+            f"Email from {email['sender']}. "
+            f"Subject: {email['subject']}. "
+            f"This is categorized as {category}. "
+            f"Deadline is {deadline}. "
+            f"Priority level is {priority}."
+        )
+        speech_queue.append(message)
+
+
         print("\n📊 TASK OBJECT")
         print(json.dumps(task, indent=4))
 
@@ -270,7 +326,12 @@ def main():
         print(cleaned_email[:200])
         print("-" * 60)
 
+    # ✅ All processing done, now speak
+    print("\n🔊 Starting voice readout...\n")
+    for message in speech_queue:
+        speak(message)  # your existing speak() function works fine here
+
+    speak_summary(tasks) 
 
 if __name__ == "__main__":
     main()
-    
