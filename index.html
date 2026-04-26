@@ -1,0 +1,722 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>WorkSync — Smart Inbox</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg:        #f9fafb;
+  --surface:   #ffffff;
+  --border:    #e5e7eb;
+  --muted:     #f3f4f6;
+  --text:      #111827;
+  --sub:       #6b7280;
+  --accent:    #2563eb;
+  --accent-bg: #eff6ff;
+  --high:      #dc2626;
+  --high-bg:   #fef2f2;
+  --med:       #d97706;
+  --med-bg:    #fffbeb;
+  --low:       #16a34a;
+  --low-bg:    #f0fdf4;
+  --radius:    10px;
+  --font:      'Inter', system-ui, sans-serif;
+  --shadow:    0 1px 3px rgba(0,0,0,.08), 0 1px 2px rgba(0,0,0,.04);
+  --shadow-md: 0 4px 6px rgba(0,0,0,.07), 0 2px 4px rgba(0,0,0,.04);
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { scroll-behavior: smooth; }
+body { background: var(--bg); color: var(--text); font-family: var(--font); font-size: 14px; line-height: 1.6; min-height: 100vh; }
+
+::-webkit-scrollbar { width: 4px; }
+::-webkit-scrollbar-track { background: var(--bg); }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+
+/* ── LANDING ─────────────────────────────────────────────── */
+#landing {
+  min-height: 100vh;
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  text-align: center; padding: 40px 20px;
+  background: var(--bg);
+}
+
+.landing-logo {
+  width: 52px; height: 52px;
+  background: var(--accent);
+  border-radius: 14px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 22px; margin: 0 auto 28px;
+  box-shadow: var(--shadow-md);
+}
+
+.landing-title {
+  font-size: clamp(32px, 6vw, 56px);
+  font-weight: 700; letter-spacing: -0.03em;
+  color: var(--text); margin-bottom: 14px;
+}
+
+.landing-sub {
+  font-size: 16px; color: var(--sub);
+  max-width: 400px; margin: 0 auto 36px;
+  line-height: 1.7; font-weight: 400;
+}
+
+.feature-pills {
+  display: flex; gap: 8px; flex-wrap: wrap;
+  justify-content: center; margin-bottom: 40px;
+}
+
+.pill {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  padding: 5px 13px; border-radius: 999px;
+  font-size: 12px; color: var(--sub);
+  font-weight: 500;
+}
+
+.btn-primary {
+  background: var(--accent); color: #fff;
+  border: none; padding: 12px 28px;
+  border-radius: var(--radius);
+  font-family: var(--font); font-size: 14px; font-weight: 600;
+  cursor: pointer; transition: all .15s;
+  display: inline-flex; align-items: center; gap: 8px;
+  box-shadow: var(--shadow-md);
+}
+.btn-primary:hover { background: #1d4ed8; transform: translateY(-1px); }
+.btn-primary:active { transform: translateY(0); }
+
+.auth-note { margin-top: 14px; font-size: 12px; color: var(--sub); }
+
+/* ── APP SHELL ───────────────────────────────────────────── */
+#app { display: none; min-height: 100vh; }
+
+.sidebar {
+  position: fixed; left: 0; top: 0; bottom: 0;
+  width: 216px;
+  background: var(--surface);
+  border-right: 1px solid var(--border);
+  padding: 20px 0;
+  display: flex; flex-direction: column;
+  z-index: 100;
+}
+
+.sidebar-logo {
+  display: flex; align-items: center; gap: 10px;
+  padding: 0 16px 20px;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 12px;
+}
+
+.sidebar-logo .logo-sm {
+  width: 28px; height: 28px;
+  background: var(--accent);
+  border-radius: 7px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 13px;
+}
+
+.sidebar-logo span { font-size: 15px; font-weight: 700; color: var(--text); }
+
+.nav-item {
+  display: flex; align-items: center; gap: 9px;
+  padding: 9px 16px; cursor: pointer;
+  border-radius: 8px; margin: 1px 8px;
+  color: var(--sub); font-size: 13px; font-weight: 500;
+  transition: all .12s;
+  border: none; background: none;
+  width: calc(100% - 16px); text-align: left;
+}
+.nav-item:hover { background: var(--muted); color: var(--text); }
+.nav-item.active { background: var(--accent-bg); color: var(--accent); }
+.nav-item .icon { font-size: 15px; width: 20px; }
+
+.sidebar-bottom {
+  margin-top: auto;
+  padding: 16px 8px 0;
+  border-top: 1px solid var(--border);
+}
+
+.user-chip {
+  display: flex; align-items: center; gap: 9px;
+  padding: 10px 12px;
+  background: var(--muted);
+  border-radius: 8px; font-size: 12px; color: var(--sub);
+}
+
+.user-avatar {
+  width: 28px; height: 28px;
+  background: var(--accent);
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 11px; color: white; font-weight: 600; flex-shrink: 0;
+}
+
+.logout-btn {
+  width: 100%; margin-top: 8px; padding: 8px;
+  background: none; border: 1px solid var(--border);
+  color: var(--sub); border-radius: 8px;
+  cursor: pointer; font-size: 12px; font-family: var(--font);
+  transition: all .12s;
+}
+.logout-btn:hover { border-color: var(--high); color: var(--high); }
+
+.main { margin-left: 216px; padding: 32px; min-height: 100vh; }
+.page { display: none; }
+.page.active { display: block; }
+
+.topbar {
+  display: flex; align-items: center;
+  justify-content: space-between; margin-bottom: 28px;
+}
+
+.page-title { font-size: 22px; font-weight: 700; color: var(--text); letter-spacing: -.02em; }
+
+.topbar-actions { display: flex; gap: 8px; align-items: center; }
+
+.btn {
+  padding: 8px 14px; border-radius: 8px;
+  font-family: var(--font); font-size: 13px; font-weight: 500;
+  cursor: pointer; transition: all .12s;
+  display: inline-flex; align-items: center; gap: 6px;
+  border: 1px solid var(--border);
+  background: var(--surface); color: var(--text);
+  box-shadow: var(--shadow);
+}
+.btn:hover { background: var(--muted); }
+.btn.accent { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 600; box-shadow: var(--shadow-md); }
+.btn.accent:hover { background: #1d4ed8; }
+.btn.danger { border-color: #fca5a5; color: var(--high); background: var(--high-bg); }
+.btn.danger:hover { background: #fee2e2; }
+
+/* STATS */
+.stats-row { display: grid; grid-template-columns: repeat(4,1fr); gap: 14px; margin-bottom: 24px; }
+
+.stat-card {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 18px 20px;
+  box-shadow: var(--shadow);
+}
+
+.stat-label {
+  font-size: 11px; color: var(--sub);
+  text-transform: uppercase; letter-spacing: .07em;
+  font-weight: 600; margin-bottom: 6px;
+}
+
+.stat-value { font-size: 32px; font-weight: 700; line-height: 1; }
+.stat-value.high   { color: var(--high); }
+.stat-value.medium { color: var(--med); }
+.stat-value.low    { color: var(--low); }
+.stat-value.total  { color: var(--text); }
+
+/* FILTERS */
+.filter-bar { display: flex; gap: 6px; margin-bottom: 18px; flex-wrap: wrap; }
+
+.filter-btn {
+  padding: 5px 13px; border-radius: 999px;
+  font-size: 12px; font-weight: 500;
+  cursor: pointer; transition: all .12s;
+  border: 1px solid var(--border);
+  background: var(--surface); color: var(--sub);
+  font-family: var(--font);
+}
+.filter-btn.active { border-color: var(--accent); color: var(--accent); background: var(--accent-bg); }
+
+/* EMAIL CARDS */
+.email-list { display: flex; flex-direction: column; gap: 10px; }
+
+.email-card {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 18px 20px;
+  transition: box-shadow .15s, transform .15s;
+  box-shadow: var(--shadow);
+}
+.email-card:hover { box-shadow: var(--shadow-md); transform: translateY(-1px); }
+.email-card.high   { border-left: 3px solid var(--high); }
+.email-card.medium { border-left: 3px solid var(--med); }
+.email-card.low    { border-left: 3px solid var(--low); }
+
+.card-top {
+  display: flex; align-items: flex-start;
+  justify-content: space-between; gap: 12px; margin-bottom: 10px;
+}
+
+.card-meta { flex: 1; min-width: 0; }
+
+.card-subject {
+  font-size: 14px; font-weight: 600; color: var(--text);
+  margin-bottom: 3px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+
+.card-sender { font-size: 12px; color: var(--sub); }
+
+.card-badges { display: flex; gap: 6px; flex-wrap: wrap; flex-shrink: 0; }
+
+.badge {
+  padding: 2px 9px; border-radius: 999px;
+  font-size: 11px; font-weight: 600; white-space: nowrap;
+}
+.badge.high   { background: var(--high-bg);   color: var(--high);  border: 1px solid #fecaca; }
+.badge.medium { background: var(--med-bg);    color: var(--med);   border: 1px solid #fde68a; }
+.badge.low    { background: var(--low-bg);    color: var(--low);   border: 1px solid #bbf7d0; }
+.badge.cat    { background: var(--muted);     color: var(--sub);   border: 1px solid var(--border); }
+.badge.cal    { background: var(--accent-bg); color: var(--accent); border: 1px solid #bfdbfe; }
+
+.card-summary {
+  font-size: 13px; color: var(--sub); line-height: 1.6;
+  margin-bottom: 12px; padding: 10px 12px;
+  background: var(--muted); border-radius: 8px;
+  border-left: 2px solid var(--border);
+}
+
+.card-footer {
+  display: flex; align-items: center;
+  justify-content: space-between;
+  font-size: 11px; color: var(--sub);
+}
+
+.card-actions { display: flex; gap: 6px; }
+.card-link {
+  padding: 4px 10px; border-radius: 6px;
+  font-size: 11px; font-weight: 500;
+  text-decoration: none; color: var(--accent);
+  border: 1px solid #bfdbfe; background: var(--accent-bg);
+  transition: all .12s;
+}
+.card-link:hover { background: #dbeafe; }
+
+/* TODO */
+.todo-list { display: flex; flex-direction: column; gap: 8px; }
+
+.todo-item {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 14px 18px;
+  display: flex; align-items: flex-start; gap: 12px;
+  transition: all .12s; box-shadow: var(--shadow);
+}
+.todo-item.done { opacity: .5; }
+.todo-item.done .todo-text { text-decoration: line-through; color: var(--sub); }
+
+.todo-check {
+  width: 18px; height: 18px;
+  border: 2px solid var(--border); border-radius: 5px;
+  cursor: pointer; flex-shrink: 0; margin-top: 2px;
+  transition: all .12s;
+  display: flex; align-items: center; justify-content: center;
+  background: none; font-size: 11px; color: white;
+}
+.todo-check.checked { background: var(--accent); border-color: var(--accent); }
+
+.todo-content { flex: 1; min-width: 0; }
+.todo-text { font-size: 13px; font-weight: 600; color: var(--text); margin-bottom: 3px; }
+.todo-meta { font-size: 11px; color: var(--sub); }
+
+.todo-priority {
+  font-size: 10px; font-weight: 700;
+  padding: 2px 8px; border-radius: 999px; flex-shrink: 0;
+}
+.todo-priority.High   { background: var(--high-bg); color: var(--high); }
+.todo-priority.Medium { background: var(--med-bg);  color: var(--med);  }
+.todo-priority.Low    { background: var(--low-bg);  color: var(--low);  }
+
+/* LOADER / EMPTY */
+.loader {
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  padding: 80px 20px; gap: 14px; color: var(--sub);
+}
+
+.spinner {
+  width: 32px; height: 32px;
+  border: 2px solid var(--border);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: spin .7s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.empty { text-align: center; padding: 80px 20px; color: var(--sub); }
+.empty-icon { font-size: 36px; margin-bottom: 10px; }
+.empty-title { font-size: 15px; font-weight: 600; color: var(--text); margin-bottom: 6px; }
+
+/* VOICE BAR */
+.voice-bar {
+  position: fixed; bottom: 20px; right: 20px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 14px; padding: 14px 18px;
+  display: flex; align-items: center; gap: 12px;
+  box-shadow: 0 8px 24px rgba(0,0,0,.12);
+  z-index: 200; transition: all .3s;
+  transform: translateY(100px); opacity: 0;
+}
+.voice-bar.visible { transform: translateY(0); opacity: 1; }
+
+.voice-btn {
+  width: 40px; height: 40px; border-radius: 50%;
+  border: none; cursor: pointer; font-size: 16px;
+  display: flex; align-items: center; justify-content: center;
+  transition: all .15s;
+}
+.voice-btn.play { background: var(--accent); color: #fff; }
+.voice-btn.play:hover { background: #1d4ed8; }
+.voice-btn.stop { background: var(--high-bg); color: var(--high); border: 1px solid #fecaca; }
+.voice-btn.stop:hover { background: #fee2e2; }
+
+.voice-info { flex: 1; }
+.voice-title { font-size: 13px; font-weight: 600; color: var(--text); }
+.voice-sub   { font-size: 11px; color: var(--sub); }
+
+/* TOAST */
+.toast-container { position: fixed; top: 16px; right: 16px; display: flex; flex-direction: column; gap: 6px; z-index: 999; }
+
+.toast {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 8px; padding: 10px 14px; font-size: 13px;
+  display: flex; align-items: center; gap: 8px;
+  animation: slideIn .25s ease; max-width: 280px;
+  box-shadow: var(--shadow-md);
+}
+.toast.success { border-color: #bbf7d0; }
+.toast.error   { border-color: #fecaca; color: var(--high); }
+@keyframes slideIn { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+
+@media (max-width: 768px) {
+  .sidebar { width: 56px; }
+  .sidebar-logo span, .nav-item span, .user-chip .user-info, .logout-btn { display: none; }
+  .main { margin-left: 56px; padding: 20px 14px; }
+  .stats-row { grid-template-columns: repeat(2,1fr); }
+}
+</style>
+</head>
+<body>
+
+<div class="toast-container" id="toasts"></div>
+
+<!-- LANDING -->
+<div id="landing">
+  <div class="landing-logo">✉️</div>
+  <h1 class="landing-title">WorkSync</h1>
+  <p class="landing-sub">Your inbox, intelligently prioritized. AI-powered email analysis, calendar sync, and voice briefings.</p>
+  <div class="feature-pills">
+    <span class="pill">🔴 Priority Detection</span>
+    <span class="pill">📅 Calendar Sync</span>
+    <span class="pill">🔊 Voice Briefing</span>
+    <span class="pill">✅ Smart To-Do</span>
+    <span class="pill">🤖 NLI Classification</span>
+  </div>
+  <button class="btn-primary" onclick="connectGoogle()">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+    Connect with Google
+  </button>
+  <p class="auth-note">Secure Google OAuth · Read-only Gmail access</p>
+</div>
+
+<!-- APP -->
+<div id="app">
+  <nav class="sidebar">
+    <div class="sidebar-logo">
+      <div class="logo-sm">✉️</div>
+      <span>WorkSync</span>
+    </div>
+    <button class="nav-item active" onclick="showPage('inbox', this)">
+      <span class="icon">📬</span><span>Inbox</span>
+    </button>
+    <button class="nav-item" onclick="showPage('todos', this)">
+      <span class="icon">✅</span><span>To-Do</span>
+    </button>
+    <button class="nav-item" onclick="showPage('calendar', this)">
+      <span class="icon">📅</span><span>Calendar</span>
+    </button>
+    <div class="sidebar-bottom">
+      <div class="user-chip">
+        <div class="user-avatar" id="userAvatar">?</div>
+        <div class="user-info">
+          <div id="userEmail" style="font-size:11px;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:120px"></div>
+        </div>
+      </div>
+      <button class="logout-btn" onclick="logout()">Sign out</button>
+    </div>
+  </nav>
+
+  <main class="main">
+
+    <!-- INBOX -->
+    <div class="page active" id="page-inbox">
+      <div class="topbar">
+        <h1 class="page-title">Inbox</h1>
+        <div class="topbar-actions">
+          <button class="btn" onclick="loadEmails()">↻ Refresh</button>
+          <button class="btn accent" onclick="startVoice()">🔊 Voice Briefing</button>
+        </div>
+      </div>
+      <div class="stats-row">
+        <div class="stat-card"><div class="stat-label">Total</div><div class="stat-value total" id="stat-total">—</div></div>
+        <div class="stat-card"><div class="stat-label">High Priority</div><div class="stat-value high" id="stat-high">—</div></div>
+        <div class="stat-card"><div class="stat-label">Medium</div><div class="stat-value medium" id="stat-med">—</div></div>
+        <div class="stat-card"><div class="stat-label">Filtered</div><div class="stat-value low" id="stat-filtered">—</div></div>
+      </div>
+      <div class="filter-bar">
+        <button class="filter-btn active" onclick="filterEmails('all', this)">All</button>
+        <button class="filter-btn" onclick="filterEmails('High', this)">🔴 High</button>
+        <button class="filter-btn" onclick="filterEmails('Medium', this)">🟡 Medium</button>
+        <button class="filter-btn" onclick="filterEmails('Low', this)">🟢 Low</button>
+        <button class="filter-btn" onclick="filterEmails('Action Required', this)">⚡ Action</button>
+        <button class="filter-btn" onclick="filterEmails('Meeting', this)">📅 Meeting</button>
+      </div>
+      <div id="email-list" class="email-list">
+        <div class="loader"><div class="spinner"></div><span>Analyzing your inbox...</span></div>
+      </div>
+    </div>
+
+    <!-- TODO -->
+    <div class="page" id="page-todos">
+      <div class="topbar">
+        <h1 class="page-title">To-Do</h1>
+        <div class="topbar-actions">
+          <button class="btn danger" onclick="clearDone()">🗑 Clear Done</button>
+          <button class="btn" onclick="loadTodos()">↻ Refresh</button>
+        </div>
+      </div>
+      <p style="color:var(--sub);font-size:13px;margin-bottom:18px">Action Required + High priority emails. Dismissed tasks stay gone on refresh.</p>
+      <div id="todo-list" class="todo-list">
+        <div class="loader"><div class="spinner"></div><span>Extracting tasks...</span></div>
+      </div>
+    </div>
+
+    <!-- CALENDAR -->
+    <div class="page" id="page-calendar">
+      <div class="topbar">
+        <h1 class="page-title">Calendar</h1>
+        <div class="topbar-actions">
+          <a class="btn accent" href="https://calendar.google.com" target="_blank">Open Google Calendar ↗</a>
+        </div>
+      </div>
+      <p style="color:var(--sub);font-size:13px;margin-bottom:18px">High and Medium priority emails are automatically added as reminders.</p>
+      <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;height:660px;box-shadow:var(--shadow);">
+        <iframe id="calendarFrame" src="" style="width:100%;height:100%;border:none;" frameborder="0" scrolling="no"></iframe>
+      </div>
+      <p style="color:var(--sub);font-size:11px;margin-top:10px;">⚠️ Must be signed into Google in this browser. If blank, use "Open Google Calendar" above.</p>
+    </div>
+
+  </main>
+</div>
+
+<!-- VOICE BAR -->
+<div class="voice-bar" id="voiceBar">
+  <button class="voice-btn play" id="voicePlayBtn" onclick="startVoice()">🔊</button>
+  <div class="voice-info">
+    <div class="voice-title">Voice Briefing</div>
+    <div class="voice-sub" id="voiceStatus">Ready to read your emails</div>
+  </div>
+  <button class="voice-btn stop" onclick="stopVoice()">⏹</button>
+</div>
+
+<script>
+const API = 'http://localhost:5000';
+let allEmails = [], currentFilter = 'all', isSpeaking = false;
+
+function toast(msg, type = 'success') {
+  const el = document.createElement('div');
+  el.className = `toast ${type}`;
+  el.innerHTML = (type === 'success' ? '✅ ' : '❌ ') + msg;
+  document.getElementById('toasts').appendChild(el);
+  setTimeout(() => el.remove(), 3500);
+}
+
+function priorityClass(p) { return p === 'High' ? 'high' : p === 'Medium' ? 'medium' : 'low'; }
+
+async function connectGoogle() {
+  const btn = document.querySelector('.btn-primary');
+  btn.textContent = '⏳ Connecting...'; btn.disabled = true;
+  try {
+    const res = await fetch(`${API}/auth/login`);
+    const data = await res.json();
+    if (data.status === 'ok') { await checkAuth(); }
+    else { toast(data.message || 'Auth failed', 'error'); btn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg> Connect with Google'; btn.disabled = false; }
+  } catch (e) { toast('Cannot reach backend. Is main.py running?', 'error'); btn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg> Connect with Google'; btn.disabled = false; }
+}
+
+async function checkAuth() {
+  try {
+    const res = await fetch(`${API}/auth/status`);
+    const data = await res.json();
+    if (data.authenticated) showApp(data.email);
+  } catch (e) {}
+}
+
+function showApp(email) {
+  document.getElementById('landing').style.display = 'none';
+  document.getElementById('app').style.display = 'block';
+  document.getElementById('userAvatar').textContent = (email || 'U')[0].toUpperCase();
+  document.getElementById('userEmail').textContent = email || '';
+  document.getElementById('voiceBar').classList.add('visible');
+  loadEmails();
+}
+
+async function logout() {
+  await fetch(`${API}/auth/logout`, { method: 'POST' });
+  document.getElementById('landing').style.display = 'flex';
+  document.getElementById('app').style.display = 'none';
+  document.getElementById('voiceBar').classList.remove('visible');
+  allEmails = [];
+}
+
+function showPage(name, btn) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  document.getElementById(`page-${name}`).classList.add('active');
+  btn.classList.add('active');
+  if (name === 'todos') loadTodos();
+  if (name === 'calendar') loadCalendar();
+}
+
+function loadCalendar() {
+  const frame = document.getElementById('calendarFrame');
+  if (!frame.src || frame.src === window.location.href) {
+    frame.src = 'https://calendar.google.com/calendar/embed?showTitle=0&showNav=1&showDate=1&showPrint=0&showTabs=1&showCalendars=0&mode=WEEK&ctz=Asia%2FKolkata';
+  }
+}
+
+async function loadEmails() {
+  document.getElementById('email-list').innerHTML = `<div class="loader"><div class="spinner"></div><span>Analyzing your inbox...</span></div>`;
+  try {
+    const res = await fetch(`${API}/emails`);
+    const data = await res.json();
+    if (data.error) { toast(data.error, 'error'); return; }
+    allEmails = data.emails;
+    document.getElementById('stat-total').textContent = data.total;
+    document.getElementById('stat-high').textContent = data.emails.filter(e => e.priority === 'High').length;
+    document.getElementById('stat-med').textContent = data.emails.filter(e => e.priority === 'Medium').length;
+    document.getElementById('stat-filtered').textContent = data.skipped;
+    renderEmails(allEmails);
+    toast(`Loaded ${data.total} emails · ${data.skipped} filtered`);
+  } catch (e) {
+    toast('Failed to load emails', 'error');
+    document.getElementById('email-list').innerHTML = `<div class="empty"><div class="empty-icon">⚠️</div><div class="empty-title">Could not load emails</div><p>Make sure the backend is running.</p></div>`;
+  }
+}
+
+function filterEmails(filter, btn) {
+  currentFilter = filter;
+  document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  renderEmails(filter === 'all' ? allEmails : allEmails.filter(e => e.priority === filter || e.category === filter));
+}
+
+function renderEmails(emails) {
+  const el = document.getElementById('email-list');
+  if (!emails.length) { el.innerHTML = `<div class="empty"><div class="empty-icon">📭</div><div class="empty-title">No emails found</div><p>Try a different filter or refresh.</p></div>`; return; }
+  el.innerHTML = emails.map(e => `
+    <div class="email-card ${priorityClass(e.priority)}">
+      <div class="card-top">
+        <div class="card-meta">
+          <div class="card-subject">${escHtml(e.subject)}</div>
+          <div class="card-sender">${escHtml(e.sender)}</div>
+        </div>
+        <div class="card-badges">
+          <span class="badge ${priorityClass(e.priority)}">${e.priority}</span>
+          <span class="badge cat">${e.category}</span>
+          ${e.cal_link ? '<span class="badge cal">📅 Calendar</span>' : ''}
+        </div>
+      </div>
+      <div class="card-summary">${escHtml(e.summary)}</div>
+      <div class="card-footer">
+        <div>${e.deadline !== 'No deadline found' ? '⏰ ' + escHtml(e.deadline) : '<span style="opacity:.4">No deadline</span>'}</div>
+        <div class="card-actions">
+          <a class="card-link" href="${e.link}" target="_blank">Open in Gmail ↗</a>
+          ${e.cal_link ? `<a class="card-link" href="${e.cal_link}" target="_blank">Calendar ↗</a>` : ''}
+        </div>
+      </div>
+    </div>`).join('');
+}
+
+let todos = [];
+const getDismissed = () => { try { return JSON.parse(localStorage.getItem('ws_dismissed') || '[]'); } catch { return []; } };
+const saveDismissed = l => localStorage.setItem('ws_dismissed', JSON.stringify(l));
+const getDoneIds = () => { try { return JSON.parse(localStorage.getItem('ws_done') || '[]'); } catch { return []; } };
+const saveDoneIds = l => localStorage.setItem('ws_done', JSON.stringify(l));
+const todoKey = t => btoa(encodeURIComponent((t.subject + t.sender).slice(0, 60))).slice(0, 20);
+
+async function loadTodos() {
+  document.getElementById('todo-list').innerHTML = `<div class="loader"><div class="spinner"></div><span>Extracting tasks...</span></div>`;
+  try {
+    const res = await fetch(`${API}/todos`);
+    const data = await res.json();
+    const dismissed = getDismissed(), doneIds = getDoneIds();
+    todos = (data.todos || []).filter(t => !dismissed.includes(todoKey(t))).map(t => ({ ...t, done: doneIds.includes(todoKey(t)) }));
+    renderTodos();
+  } catch (e) { toast('Failed to load todos', 'error'); }
+}
+
+function renderTodos() {
+  const el = document.getElementById('todo-list');
+  if (!todos.length) { el.innerHTML = `<div class="empty"><div class="empty-icon">✅</div><div class="empty-title">All clear!</div><p>No tasks, or all dismissed.</p><button class="btn" style="margin-top:12px" onclick="resetDismissed()">↺ Restore dismissed</button></div>`; return; }
+  el.innerHTML = todos.map((t, i) => `
+    <div class="todo-item ${t.done ? 'done' : ''}">
+      <button class="todo-check ${t.done ? 'checked' : ''}" onclick="toggleTodo(${i})">${t.done ? '✓' : ''}</button>
+      <div class="todo-content">
+        <div class="todo-text">${escHtml(t.subject)}</div>
+        <div class="todo-meta">From ${escHtml(t.sender)}${t.deadline !== 'No deadline found' ? ' · ⏰ ' + escHtml(t.deadline) : ''} · <a href="${t.link}" target="_blank" style="color:var(--accent)">Open ↗</a></div>
+        <div class="todo-meta" style="margin-top:3px">${escHtml(t.summary)}</div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:5px;flex-shrink:0;align-items:flex-end">
+        <span class="todo-priority ${t.priority}">${t.priority}</span>
+        <button onclick="dismissTodo(${i})" style="padding:2px 8px;border-radius:6px;font-size:10px;border:1px solid var(--border);background:none;color:var(--sub);cursor:pointer;font-family:var(--font)">✕ Dismiss</button>
+      </div>
+    </div>`).join('');
+}
+
+function toggleTodo(i) {
+  todos[i].done = !todos[i].done;
+  const doneIds = getDoneIds(), key = todoKey(todos[i]);
+  if (todos[i].done) { if (!doneIds.includes(key)) doneIds.push(key); }
+  else { const idx = doneIds.indexOf(key); if (idx > -1) doneIds.splice(idx, 1); }
+  saveDoneIds(doneIds); renderTodos();
+}
+
+function dismissTodo(i) {
+  const key = todoKey(todos[i]), dismissed = getDismissed();
+  if (!dismissed.includes(key)) dismissed.push(key);
+  saveDismissed(dismissed);
+  saveDoneIds(getDoneIds().filter(d => d !== key));
+  todos.splice(i, 1); renderTodos();
+  toast("Task dismissed — won't reappear on refresh");
+}
+
+function clearDone() { todos = todos.filter(t => !t.done); saveDoneIds([]); renderTodos(); toast('Cleared completed tasks'); }
+function resetDismissed() { localStorage.removeItem('ws_dismissed'); localStorage.removeItem('ws_done'); loadTodos(); toast('Restored all dismissed tasks'); }
+
+async function startVoice() {
+  if (!allEmails.length) { toast('Load emails first', 'error'); return; }
+  isSpeaking = true;
+  document.getElementById('voiceStatus').textContent = 'Reading briefing...';
+  try {
+    const res = await fetch(`${API}/voice`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ emails: allEmails }) });
+    const data = await res.json();
+    if (data.status === 'ok') { toast('Voice briefing started 🔊'); document.getElementById('voiceStatus').textContent = 'Playing...'; }
+    else { toast(data.error || 'Voice error', 'error'); }
+  } catch (e) { toast('Voice error', 'error'); }
+}
+
+async function stopVoice() {
+  isSpeaking = false;
+  document.getElementById('voiceStatus').textContent = 'Stopped';
+  try { await fetch(`${API}/voice/stop`, { method: 'POST' }); } catch (e) {}
+  setTimeout(() => { document.getElementById('voiceStatus').textContent = 'Ready to read your emails'; }, 1500);
+}
+
+function escHtml(str) {
+  return String(str || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+checkAuth();
+</script>
+</body>
+</html>
