@@ -1,0 +1,25 @@
+{
+  "name": "miniproject",
+  "version": "1.0.0",
+  "description": "This module fetches emails from Gmail using the Gmail API and classifies them using a transformer-based model.",
+  "main": "api.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/fatima-iram/workSync.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/fatima-iram/workSync/issues"
+  },
+  "homepage": "https://github.com/fatima-iram/workSync#readme",
+  "dependencies": {
+    "body-parser": "^2.2.2",
+    "cors": "^2.8.6",
+    "express": "^5.2.1"
+  }
+}
