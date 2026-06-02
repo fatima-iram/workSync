@@ -20,9 +20,34 @@ body{font-family:"DM Sans",sans-serif;background:var(--bg);color:var(--text);min
 
 /* ── SIDEBAR ── */
 .sidebar{width:var(--sw);min-height:100vh;background:rgba(235,232,222,0.95);border-right:1px solid var(--border);display:flex;flex-direction:column;padding:24px 0;position:fixed;top:0;left:0;bottom:0;z-index:100}
-.sb-logo{padding:0 20px 12px;border-bottom:1px solid var(--border);margin-bottom:16px}
-.sb-logo .lt{font-family:"Playfair Display",serif;font-size:22px;font-weight:700;color:#1a1a1a}
-.sb-logo .lt span{color:var(--teal)}
+.sb-logo{
+    padding:20px;
+    border-bottom:1px solid var(--border);
+    margin-bottom:16px;
+    display:flex;
+    justify-content:center;
+    align-items:center;
+    min-height:80px;
+}
+.sb-logo img{
+    max-width:160px;
+    width:100%;
+    height:auto;
+    object-fit:contain;
+    mix-blend-mode:multiply;
+}
+.sb-logo .lt{
+    font-family:"Playfair Display",serif;
+    font-size:28px;
+    font-weight:700;
+    color:#1a1a1a;
+    text-align:center;
+    width:100%;
+}
+
+.sb-logo .lt span{
+    color:var(--teal);
+}
 .nav-sec{padding:0 12px;margin-bottom:6px}
 .nav-lbl{font-size:10px;font-weight:600;letter-spacing:1.2px;text-transform:uppercase;color:var(--muted);padding:0 8px;margin-bottom:5px}
 .nav-item{display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:10px;cursor:pointer;font-size:13.5px;color:#555;transition:all 0.15s;margin-bottom:2px;text-decoration:none;color:inherit}
