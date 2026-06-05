@@ -95,7 +95,7 @@ body {
     border: none;
     outline: none;
     background: transparent;
-    width: 100%;
+    width: 325px;
     font-size: 14px;
     font-family: "DM Sans", sans-serif;
     color: #222;
@@ -219,7 +219,6 @@ document.getElementById("syncBtn")
     if (!email) {
 
         alert("Please enter your email");
-
         return;
     }
 
@@ -240,28 +239,6 @@ document.getElementById("syncBtn")
 
     syncBtn.style.opacity = "0.7";
     syncBtn.style.pointerEvents = "none";
-
-    try {
-
-        await fetch(
-          "http://localhost:5000/save-email",
-          {
-            method: "POST",
-
-            headers: {
-              "Content-Type": "application/json"
-            },
-
-            body: JSON.stringify({ email })
-          }
-        );
-
-    } catch(err) {
-
-        console.log(
-          "Backend optional"
-        );
-    }
 
     // Small sync delay
     setTimeout(() => {

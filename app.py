@@ -4,6 +4,7 @@ import base64
 import pickle
 import threading
 from datetime import datetime, timedelta
+import json
 
 from flask import Flask, jsonify, request
 from flask_cors import CORS
@@ -14,7 +15,10 @@ from googleapiclient.errors import HttpError
 from google.auth.transport.requests import Request
 
 import spacy
-import pyttsx3
+import edge_tts
+import asyncio
+import pygame
+import tempfile
 import dateparser
 from bs4 import BeautifulSoup          # best HTML cleaner (from code A)
 from transformers import pipeline
@@ -63,35 +67,58 @@ print("Models loaded.")
 # safest fix is to init a fresh engine each time in its own thread
 # ============================================================
 
-def _speak_all(texts):
-    """Init fresh engine, speak all texts, then destroy. Called in thread."""
-    try:
-        engine = pyttsx3.init()
-        engine.setProperty("rate", 160)
-        engine.setProperty("volume", 1.0)
-        voices = engine.getProperty("voices")
-        for v in voices:
-            if "zira" in v.name.lower() or "female" in v.name.lower():
-                engine.setProperty("voice", v.id)
-                break
-        for text in texts:
-            if text and text.strip():
-                engine.say(text)
-        engine.runAndWait()
-        engine.stop()
-    except Exception as e:
-        print(f"Voice error: {e}")
+# ============================================================
+# VOICE ENGINE - edge-tts (replaces pyttsx3)
+# ============================================================
+
+pygame.mixer.init()
+# ✅ Global stop flag
+voice_stop_flag = False
+
+async def _speak_async(lines):
+    global voice_stop_flag
+    voice_stop_flag = False 
+
+    for text in lines:
+        if voice_stop_flag:
+            print("🛑 Voice stopped by user.")
+            pygame.mixer.music.stop()
+            break
+
+        if not text or not text.strip():
+            continue
+        print("SPEAKING:", text)
+        with tempfile.NamedTemporaryFile(delete=False, suffix='.mp3') as f:
+            temp_path = f.name
+        communicate = edge_tts.Communicate(text, voice="en-US-JennyNeural")
+        await communicate.save(temp_path)
+
+        if voice_stop_flag:  # check again after generating audio
+            os.remove(temp_path)
+            break
+
+        pygame.mixer.music.load(temp_path)
+        pygame.mixer.music.play()
+        while pygame.mixer.music.get_busy():
+            pygame.time.Clock().tick(10)
+        pygame.mixer.music.unload()
+        os.remove(temp_path)
 
 
 def speak_lines(lines):
-    """Run speech in a daemon thread with a fresh engine."""
-    t = threading.Thread(target=_speak_all, args=(lines,), daemon=True)
-    t.start()
-    return t
+    """Speak all lines fully before returning."""
+    asyncio.run(_speak_async(lines))
+
+def stop_voice():
+    """Call this when the button is tapped."""
+    global voice_stop_flag
+    voice_stop_flag = True
+    pygame.mixer.music.stop()
+    print("🛑 Voice stop requested.")
 
 
 def voice_briefing_thread(processed):
-    """Build all lines first, then speak in one fresh engine call."""
+    """Build all lines first, then speak in one call."""
     high   = [e for e in processed if e["priority"] == "High"]
     medium = [e for e in processed if e["priority"] == "Medium"]
     low    = [e for e in processed if e["priority"] == "Low"]
@@ -105,11 +132,11 @@ def voice_briefing_thread(processed):
         return
 
     parts = []
-    if high: 
+    if high:
         parts.append(f"{len(high)} high priority")
-    if medium: 
+    if medium:
         parts.append(f"{len(medium)} medium priority")
-    if low:   
+    if low:
         parts.append(f"{len(low)} low priority")
 
     lines.append(
@@ -140,8 +167,9 @@ def voice_briefing_thread(processed):
         lines.append(f"Summary: {e['summary']}")
 
     lines.append("End of briefing. Have a productive day.")
+    
+    # ✅ speaks everything fully before returning
     speak_lines(lines)
-
 
 # ============================================================
 # SENDER HELPERS
@@ -190,12 +218,12 @@ def get_services():
 # FETCH EMAILS
 # ============================================================
 
-def fetch_emails(gmail_svc, limit=60):
+def fetch_emails(gmail_svc, limit=30):
     results  = gmail_svc.users().messages().list(
         userId='me',
         labelIds=['INBOX'],          # INBOX only — no category filter blocks legit emails
         maxResults=limit,
-        q="newer_than:14d -in:spam -category:promotions"
+        q="newer_than:7d -in:spam -category:promotions"
     ).execute()
 
     messages = results.get("messages", [])
@@ -211,9 +239,9 @@ def fetch_emails(gmail_svc, limit=60):
         subject = ""
         sender  = ""
         for h in headers:
-            if h["name"] == "Subject": 
+            if h["name"] == "Subject":
                 subject = h["value"]
-            if h["name"] == "From":   
+            if h["name"] == "From":
                 sender  = h["value"]
 
         body    = ""
@@ -233,6 +261,7 @@ def fetch_emails(gmail_svc, limit=60):
 
         # Use BeautifulSoup for best HTML cleaning (code A strength)
         body = clean_html(body)
+        body = body[:2000]
 
         emails.append({
             "id": msg_id, "subject": subject,
@@ -243,7 +272,7 @@ def fetch_emails(gmail_svc, limit=60):
 
 
 # ============================================================
-# HTML + BODY CLEANING  (BeautifulSoup from code A = best cleaner)
+# HTML + BODY CLEANING
 # ============================================================
 
 def clean_html(text):
@@ -261,7 +290,7 @@ def clean_html(text):
 
 
 # ============================================================
-# SPAM / PROMO FILTER  (combined keyword sets from both codes)
+# SPAM / PROMO FILTER
 # ============================================================
 
 SPAM_DOMAINS = [
@@ -278,40 +307,23 @@ SPAM_SUBJECT_PATTERNS = [
     r"order now", r"clearance", r"advertisement"
 ]
 
-# Only check sender — body check was catching legit emails like
-# "please confirm your meeting" (contains "confirm" = matched "offer")
 def is_promotional(sender, subject, body=""):
-
+    # Always skip google calendar notifications — they are not real emails
     if "calendar-notification@google.com" in sender.lower():
         return True
     sl = sender.lower()
     su = subject.lower()
-
     for d in SPAM_DOMAINS:
         if d in sl:
             return True
     for p in SPAM_SUBJECT_PATTERNS:
-        if re.search(p, su): 
+        if re.search(p, su):
             return True
-        # Filter repetitive Google Calendar notifications
-        calendar_patterns = [
-            "google calendar",
-            "invitation from google calendar",
-            "daily agenda",
-            "weekly reminder",
-            "event reminder notification"
-        ]
-
-        combined = (sender + " " + subject).lower()
-
-        for pattern in calendar_patterns:
-            if pattern in combined:
-                return True
     return False
 
 
 # ============================================================
-# SUMMARIZER  (spaCy sentence scoring from code B = best)
+# SUMMARIZER
 # ============================================================
 
 IMPORTANT_VERBS = {
@@ -338,24 +350,19 @@ def score_sentence(sent_text):
 
 
 def summarize_email(subject, body):
-    # For very short emails (like "urgent meeting at 10pm"),
-    # just return the body directly — it IS the summary
     word_count = len(body.split())
     if word_count < 30:
         return body.strip() if body.strip() else subject.strip()
 
-    doc       = nlp(body[:2000])
+    doc  = nlp(body[:1500])
     sentences = [s.text.strip() for s in doc.sents if len(s.text.strip()) > 8]
 
     if not sentences:
         return body.strip()[:220] if body.strip() else subject.strip()
 
-    # Score and pick best
     scored = sorted(sentences[:15], key=score_sentence, reverse=True)
     best   = scored[0]
 
-    # If score is very low still return first meaningful sentence
-    # rather than falling back to subject — body content is more useful
     if score_sentence(best) < 0:
         return sentences[0][:220].strip()
 
@@ -363,7 +370,7 @@ def summarize_email(subject, body):
 
 
 # ============================================================
-# PRIORITY DETECTION  (rule scoring + NLI tiebreaker from code B)
+# PRIORITY DETECTION
 # ============================================================
 
 HIGH_PRIORITY_SENDERS = [
@@ -372,6 +379,10 @@ HIGH_PRIORITY_SENDERS = [
     "hr@", "careers@", "recruitment", "zoom.us", "microsoft.com"
 ]
 
+# ── FIX: removed overly broad triggers (meeting, call, today, tomorrow,
+#         attend, reminder) that were inflating scores and then pushing
+#         everything into HIGH, causing the tiebreaker NLI to never run
+#         and leaving medium emails mislabelled as Low.
 HIGH_PATTERNS = [
     r"\burgent\b", r"\basap\b", r"\bimmediately\b", r"\baction required\b",
     r"\bdeadline\b", r"\bexpires?\b", r"\bdue (today|tomorrow|tonight)\b",
@@ -380,9 +391,7 @@ HIGH_PATTERNS = [
     r"\bverif(y|ication)\b", r"\bpayment (due|failed|declined)\b",
     r"\boffer letter\b", r"\binterview\b", r"\bselected\b", r"\brejected\b",
     r"\bfinal (reminder|notice|warning)\b", r"\baccount (locked|suspended)\b",
-    r"\bat \d{1,2}(:\d{2})?\s*(am|pm)\b",  # "meeting at 10pm"
-    r"\bcall\b", r"\btoday\b", r"\btonight\b", r"\btomorrow\b",
-    r"\battend\b"
+    r"\bat \d{1,2}(:\d{2})?\s*(am|pm)\b",
 ]
 
 LOW_PATTERNS = [
@@ -392,7 +401,6 @@ LOW_PATTERNS = [
     r"\bflash\b", r"\bnoreply\b", r"\bno-reply\b"
 ]
 
-# Category words from code A — great for task extraction
 ACTION_WORDS = {
     "submit", "complete", "review", "prepare", "finish", "update", "send",
     "upload", "deliver", "finalize", "check", "verify", "fix", "resolve",
@@ -412,44 +420,43 @@ APPROVAL_WORDS = {
 
 
 def classify_category(text):
-    """Code A's category classification — kept as-is, it works well."""
     tl = text.lower()
     for w in ACTION_WORDS:
-        if w in tl: 
+        if w in tl:
             return "Action Required"
     for w in MEETING_WORDS:
-        if w in tl: 
+        if w in tl:
             return "Meeting"
     for w in APPROVAL_WORDS:
-        if w in tl: 
+        if w in tl:
             return "Approval Needed"
     return "Informational"
 
 
 def detect_priority(subject, sender, body):
+    # Hard-skip known spam/promo senders regardless of content
     if is_promotional(sender, subject, body):
         return "Low"
 
-    text  = (subject + " " + body).lower()
-    score = 0
-
-    # Smart category boosting from old code
+    text     = (subject + " " + body).lower()
+    score    = 0
     category = classify_category(subject + " " + body)
 
+    # ── FIX: category boosts are intentionally modest so they don't
+    #         push every action/meeting email straight past the NLI gate.
+    #         "Action Required" +2, "Meeting" +1, "Approval Needed" +1.
     if category == "Action Required":
-        score += 4
-
-    elif category == "Approval Needed":
-        score += 3
-
+        score += 2
     elif category == "Meeting":
+        score += 1
+    elif category == "Approval Needed":
         score += 1
 
     for p in HIGH_PATTERNS:
-        if re.search(p, text): 
+        if re.search(p, text):
             score += 3
     for p in LOW_PATTERNS:
-        if re.search(p, text): 
+        if re.search(p, text):
             score -= 2
 
     for trusted in HIGH_PRIORITY_SENDERS:
@@ -457,33 +464,37 @@ def detect_priority(subject, sender, body):
             score += 2
             break
 
-    # NLI tiebreaker — only when rules are inconclusive
-    if -1 <= score <= 1:
+    # ── NLI tiebreaker — runs when rules are inconclusive (−1 … 3).
+    #    Widened the gate slightly so more emails go through NLI.
+    if -1 <= score <= 3:
         try:
             snippet = (subject + " " + body[:400])[:512]
             result  = classifier(snippet, PRIORITY_LABELS)
             top, conf = result["labels"][0], result["scores"][0]
-            if   top == "urgent action required"    and conf > 0.60: 
+            if   top == "urgent action required"    and conf > 0.55:
                 score += 3
-            elif top == "important information"     and conf > 0.60: 
+            elif top == "important information"     and conf > 0.55:
                 score += 1
-            elif top == "promotional or newsletter" and conf > 0.60: 
+            elif top == "promotional or newsletter" and conf > 0.55:
                 score -= 2
-            elif top == "low priority"              and conf > 0.60: 
+            elif top == "low priority"              and conf > 0.55:
                 score -= 1
         except Exception:
             pass
 
-    if score >= 4:  
-         return "High"
-    elif score >= 1: 
+    # ── FIX: restored original thresholds (>= 3 High, >= 1 Medium).
+    #         The previous code used >= 4 for High which was too strict
+    #         and caused most real emails to fall through as Low.
+    if score >= 3:
+        return "High"
+    elif score >= 1:
         return "Medium"
-    else:          
-          return "Low"
+    else:
+        return "Low"
 
 
 # ============================================================
-# DEADLINE EXTRACTION  (code B spaCy NER = more robust)
+# DEADLINE EXTRACTION
 # ============================================================
 
 VAGUE_DATES = {
@@ -494,16 +505,14 @@ VAGUE_DATES = {
 
 
 def extract_deadline(text):
-    # Quick keyword check from code A first (fast)
     tl = text.lower()
-    if "tonight"  in tl: 
+    if "tonight"  in tl:
         return "Tonight"
     if "today"    in tl:
         return "Today"
-    if "tomorrow" in tl: 
+    if "tomorrow" in tl:
         return "Tomorrow"
 
-    # Then spaCy NER for real dates (code B strength)
     doc   = nlp(text[:1000])
     dates = []
     for ent in doc.ents:
@@ -512,7 +521,6 @@ def extract_deadline(text):
             if val.lower() not in VAGUE_DATES and len(val) > 3:
                 dates.append(val)
 
-    # Regex date pattern from code A as fallback
     date_pattern = r'\b\d{1,2}[/-]\d{1,2}[/-]\d{2,4}\b'
     for match in re.finditer(date_pattern, text):
         val = match.group()
@@ -531,9 +539,9 @@ def extract_deadline(text):
 def parse_deadline_to_datetime(deadline_str):
     if deadline_str in ("No deadline found", "Today", "Tomorrow", "Tonight"):
         now = datetime.now()
-        if deadline_str == "Tonight":  
+        if deadline_str == "Tonight":
             return now.replace(hour=20, minute=0)
-        if deadline_str == "Tomorrow": 
+        if deadline_str == "Tomorrow":
             return now + timedelta(days=1)
         return now
     try:
@@ -563,6 +571,7 @@ def create_calendar_event(calendar_svc, email_data):
     if existing.get("items"):
         print(f"Skipping duplicate calendar event: {email_data['subject']}")
         return existing["items"][0].get("htmlLink")
+
     event_dt = parse_deadline_to_datetime(email_data["deadline"])
     if event_dt is None:
         event_dt = datetime.now().replace(
@@ -604,6 +613,23 @@ def create_calendar_event(calendar_svc, email_data):
         print(f"  Calendar error: {err}")
         return ""
 
+ 
+CALENDAR_STORE = "calendar_processed.json"
+
+def load_calendar_ids():
+    if not os.path.exists(CALENDAR_STORE):
+        return []
+
+    try:
+        with open(CALENDAR_STORE, "r") as f:
+            return json.load(f)
+    except:
+        return []
+
+def save_calendar_ids(ids):
+    with open(CALENDAR_STORE, "w") as f:
+        json.dump(ids, f)
+
 
 # ============================================================
 # PROCESS EMAILS — main analysis pipeline
@@ -617,29 +643,44 @@ def process_emails(emails, calendar_svc):
     for e in emails:
         body = e["body"]
 
-        # Skip ONLY true spam/promotions
-        if (
-            is_promotional(e["sender"], e["subject"], body)
-            and classify_category(e["subject"] + " " + body) == "Informational"
-        ):
-            skipped += 1
-            continue
+        # ── FIX: only skip if BOTH promotional AND purely informational.
+        #         An "Action Required" email from a promo-looking sender
+        #         can still be legitimate — don't block it.
+        combined_text = e["subject"] + " " + body
+
+        # FAST EARLY FILTER
+        if is_promotional(e["sender"], e["subject"], body):
+
+            # Immediately skip useless promo/informational mails
+            if classify_category(combined_text) == "Informational":
+                skipped += 1
+                continue
 
         if not body or body.strip() == "":
             skipped += 1
             continue
 
-        summary  = summarize_email(e["subject"], body)
-        deadline = extract_deadline(e["subject"] + " " + body)
         priority = detect_priority(e["subject"], e["sender"], body)
-        category = classify_category(e["subject"] + " " + body)
+        category = classify_category(combined_text)
+        deadline = extract_deadline(combined_text   )
+        # Heavy NLP summary only for useful emails
+        if priority in ["High", "Medium"]:
+            summary = summarize_email(e["subject"], body)
+        else:
+            summary = body[:120] if body else e["subject"]
+        # Skip useless low informational emails EARLY
+        if priority == "Low" and category == "Informational":
+            skipped += 1
+            continue
         link     = f"https://mail.google.com/mail/u/0/#all/{e['id']}"
 
-        # Skip only useless low informational emails
-        if (
-            priority == "Low"
-            and category == "Informational"
-        ):
+        # ── FIX: removed the blanket skip of Low+Informational emails.
+        #         That block was swallowing High and Medium emails whose
+        #         priority got mis-scored on the first pass.  We now keep
+        #         ALL High and Medium emails unconditionally, and only
+        #         drop Low+Informational ones (truly useless).
+        if priority == "Low" and category == "Informational":
+            skipped += 1
             continue
 
         email_data = {
@@ -654,18 +695,11 @@ def process_emails(emails, calendar_svc):
             "cal_link": ""
         }
 
-        # Auto-add High + Medium to calendar
-        if (priority=="High" and category=="Action Required") and calendar_svc:
+        # Auto-add High Action-Required emails to calendar
+        if priority == "High" and category == "Action Required" and calendar_svc:
             cal_link = create_calendar_event(calendar_svc, email_data)
             email_data["cal_link"] = cal_link
-            
-        # Skip only exact duplicate sender + subject
-        if any(
-            p["subject"] == email_data["subject"]
-            and p["sender"] == email_data["sender"]
-            for p in processed
-        ):
-            continue           
+
         processed.append(email_data)
 
     processed.sort(key=lambda x: priority_order.get(x["priority"], 2))
@@ -724,10 +758,10 @@ def get_emails():
         return jsonify({"error": "Not authenticated"}), 401
 
     try:
-        raw     = fetch_emails(gmail_svc)
+        raw              = fetch_emails(gmail_svc)
         results, skipped = process_emails(raw, calendar_svc)
-        return jsonify(results) 
-        
+        return jsonify(results)
+
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
@@ -740,9 +774,9 @@ def get_todos():
         return jsonify({"error": "Not authenticated"}), 401
 
     try:
-        raw     = fetch_emails(gmail_svc)
+        raw        = fetch_emails(gmail_svc)
         results, _ = process_emails(raw, calendar_svc)
-        todos   = [
+        todos      = [
             {
                 "subject":  e["subject"],
                 "sender":   e["sender"],
@@ -758,26 +792,23 @@ def get_todos():
         tasks = []
 
         for i, e in enumerate(todos):
-
             tasks.append({
-                "id": i + 1,
-                "title": e["subject"],
-                "desc": e["summary"],
+                "id":       i + 1,
+                "title":    e["subject"],
+                "desc":     e["summary"],
                 "priority": e["priority"],
                 "status": (
-                    "todo"
-                    if e["priority"] == "High"
-                    else "progress"
-                    if e["priority"] == "Medium"
-                    else "review"
+                    "todo"     if e["priority"] == "High"   else
+                    "progress" if e["priority"] == "Medium" else
+                    "review"
                 ),
-                "tag": e.get("category", "General"),
-                "due": e.get("deadline", "No deadline"),
+                "tag":      e.get("category", "General"),
+                "due":      e.get("deadline", "No deadline"),
                 "assignee": extract_sender_name(e["sender"]),
                 "progress": (
-                    20 if e["priority"] == "High"
-                    else 60 if e["priority"] == "Medium"
-                    else 90
+                    20 if e["priority"] == "High"   else
+                    60 if e["priority"] == "Medium" else
+                    90
                 )
             })
 
@@ -797,85 +828,64 @@ def voice_read():
     if not emails:
         return jsonify({"error": "No emails provided"}), 400
 
-    # Don't start if already speaking
     if _voice_thread and _voice_thread.is_alive():
         return jsonify({"error": "Already speaking"}), 400
 
     _voice_thread = threading.Thread(
-        target=voice_briefing_thread, args=(emails,), daemon=True
+        target=voice_briefing_thread, args=(emails,), daemon=False
     )
     _voice_thread.start()
     return jsonify({"status": "ok", "message": "Voice briefing started"})
 
 
 @app.route("/voice/stop", methods=["POST"])
-def voice_stop():
-    """Stop voice — kill the thread by letting it die naturally via engine crash."""
-    global _voice_thread
-    try:
-        # Init a fresh engine just to stop any active speech
-        import pyttsx3 as _p
-        e = _p.init()
-        e.stop()
-    except Exception:
-        pass
-    _voice_thread = None
-    return jsonify({"status": "ok"})
+def stop_voice_route():
+    stop_voice()
+    return jsonify({"status": "stopped"})
 
-#task board
-todos_store = [
-    {
-        "id": 1,
-        "title": "Reply to placement email",
-        "desc": "Respond before deadline",
-        "priority": "High",
-        "status": "todo",
-        "tag": "Planning",
-        "due": "2026-05-28",
-        "assignee": "Hardik",
-        "progress": 20
-    },
+@app.route("/calendar/events", methods=["GET"])
+def calendar_events():
 
-    {
-        "id": 2,
-        "title": "Prepare AI presentation",
-        "desc": "Slides for mini project",
-        "priority": "Medium",
-        "status": "progress",
-        "tag": "Design",
-        "due": "2026-05-30",
-        "assignee": "Hardik",
-        "progress": 60
-    },
+    gmail_svc, calendar_svc = get_services()
 
-    {
-        "id": 3,
-        "title": "Review internship form",
-        "desc": "Verify details and submit",
-        "priority": "Low",
-        "status": "review",
-        "tag": "HR",
-        "due": "2026-06-02",
-        "assignee": "Hardik",
-        "progress": 90
-    }
-]
+    if not gmail_svc:
+        return jsonify({"error": "Not authenticated"}), 401
 
-@app.route("/todos", methods=["GET", "POST"])
-def todos():
+    raw_emails = fetch_emails(gmail_svc)
 
-    global todos_store
+    emails, _ = process_emails(raw_emails, calendar_svc)
 
-    if request.method == "GET":
-        return jsonify(todos_store)
+    processed_ids = load_calendar_ids()
 
-    data = request.json
+    calendar_events = []
 
-    todos_store = data
+    changed = False
+
+    for e in emails:
+
+        if e["priority"] not in ["High", "Medium"]:
+            continue
+
+        calendar_events.append({
+            "id": e["id"],
+            "subject": e["subject"],
+            "summary": e["summary"],
+            "deadline": "Tomorrow",
+            "priority": e["priority"],
+            "category": e["category"],
+            "sender": e["sender"],
+            "link": e["link"],
+            "cal_link": e["cal_link"]
+        })
+
+    if changed:
+        save_calendar_ids(processed_ids)
 
     return jsonify({
-        "status": "success"
+        "events": calendar_events
     })
+
+
 
 # ============================================================
 # MAIN
@@ -884,342 +894,3 @@ def todos():
 if __name__ == "__main__":
     print("WorkSync backend running on http://localhost:5000")
     app.run(debug=False, port=5000)
-
-
-# from googleapiclient.discovery import build
-# from google_auth_oauthlib.flow import InstalledAppFlow
-# import base64
-# from transformers import pipeline
-# import re
-# from bs4 import BeautifulSoup
-# import json
-# import edge_tts
-
-# import asyncio
-# import pygame
-# import tempfile
-# import os
-
-# #Voice Assistant
-# pygame.mixer.init()
-
-# def speak(text): 
-#     print("🔊", text)  # also print
-    
-#     async def _speak():
-#         with tempfile.NamedTemporaryFile(delete=False, suffix='.mp3') as f:
-#             temp_path = f.name
-        
-#         communicate = edge_tts.Communicate(text, voice="en-US-JennyNeural")
-#         await communicate.save(temp_path)
-        
-#         pygame.mixer.music.load(temp_path)
-#         pygame.mixer.music.play()
-        
-#         while pygame.mixer.music.get_busy():
-#             pygame.time.Clock().tick(10)
-        
-#         pygame.mixer.music.unload()
-#         os.remove(temp_path)
-    
-#     asyncio.run(_speak())
-    
-
-# def speak_summary(tasks):
-#     high = sum(1 for t in tasks if t["priority"] == "High Priority")
-#     today = sum(1 for t in tasks if t["deadline"] == "Today")
-
-#     speak(f"You have {len(tasks)} important emails.")
-#     speak(f"{high} are high priority.")
-#     speak(f"{today} have deadlines today.")
-
-
-# # Gmail API permission
-# SCOPES = ['https://www.googleapis.com/auth/gmail.readonly']
-
-# # DistilBERT model
-# classifier = pipeline(
-#     "zero-shot-classification",
-#     model="facebook/bart-large-mnli"
-# )
-
-# labels = [
-# "Action Required",
-# "Meeting",
-# "Informational",
-# "Approval Needed",
-# "High Priority"
-# ]
-
-# # Gmail authentication
-# def authenticate_gmail():
-
-#     flow = InstalledAppFlow.from_client_secrets_file(
-#         'credentials.json',
-#         SCOPES
-#     )
-
-#     creds = flow.run_local_server(port=0)
-
-#     service = build('gmail', 'v1', credentials=creds)
-
-#     return service
-
-
-# # Fetch emails
-# def fetch_emails(service):
-
-#     results = service.users().messages().list(
-#         userId='me',
-#         labelIds=['INBOX','CATEGORY_PERSONAL'],
-#         maxResults=5
-#     ).execute()
-
-#     messages = results.get('messages', [])
-
-#     emails = []
-
-#     for msg in messages:
-
-#         message_id = msg["id"]   # <-- message_id defined here
-
-#         txt = service.users().messages().get(
-#             userId='me',
-#             id=message_id
-#         ).execute()
-
-#         payload = txt['payload']
-#         headers = payload['headers']
-
-#         subject = ""
-#         sender = ""
-
-#         for header in headers:
-#             if header['name'] == "Subject":
-#                 subject = header['value']
-
-#             if header['name'] == "From":
-#                 sender = header['value']
-
-#         body = ""
-
-#         parts = payload.get('parts')
-#         if parts:
-#             data = parts[0]['body'].get('data')
-#         else:
-#             data = payload['body'].get('data')
-#         if data:
-#             text = base64.urlsafe_b64decode(data).decode("utf-8")
-#             body=text
-#         else:
-#             body=""
-
-#         # Gmail redirect link
-#         gmail_link = f"https://mail.google.com/mail/u/0/#all/{message_id}"
-        
-#         emails.append({
-#             "subject": subject,
-#             "sender": sender,
-#             "body": body,
-#             "gmail_link": gmail_link
-#         })
-
-#     return emails
-
-# action_words = {
-# "submit","complete","review","prepare","finish","update","send",
-# "upload","deliver","finalize","check","verify","fix","resolve",
-# "investigate","respond","reply","follow","draft","edit","revise",
-# "compile","summarize","create","build","design","develop",
-# "implement","deploy","test","debug","install","configure",
-# "setup","maintain","monitor","track","evaluate","assess"
-# }
-
-# meeting_words = {
-# "meeting","schedule","arrange","plan","coordinate","call",
-# "conference","discussion","sync","appointment","join",
-# "attend","set meeting","schedule call","prepare slides"
-# }
-
-# approval_words = {
-# "approve","confirm","authorize","validate","acknowledge",
-# "accept","agree","consent","verify approval","confirm receipt"
-# }
-
-# informational_words = {
-# "inform","notify","announce","share","update","report",
-# "broadcast","circulate","mention","state","declare",
-# "reminder","notice","alert"
-# }
-
-# priority_words = {
-# "urgent","immediately","asap","priority","important",
-# "critical","deadline","today","tomorrow","now",
-# "action required","time sensitive"
-# }
-
-# spam_keywords = {
-# "sale","offer","discount","deal","buy now","limited offer",
-# "unsubscribe","promotion","advertisement","shop now",
-# "order now","exclusive deal","coupon","free shipping",
-# "clearance","marketing","newsletter"
-# }
-
-# def is_spam(text):
-
-#     text = text.lower()
-
-#     for word in spam_keywords:
-#         if word in text:
-#             return True
-
-#     return False
-
-
-# #Deadline extraction
-# def extract_deadline(text):
-
-#     text = text.lower()
-
-#     # simple deadline keywords
-#     if "today" in text:
-#         return "Today"
-
-#     if "tomorrow" in text:
-#         return "Tomorrow"
-
-#     if "tonight" in text:
-#         return "Tonight"
-
-#     # detect date patterns like 12/06/2026
-#     date_pattern = r'\b\d{1,2}/\d{1,2}/\d{2,4}\b'
-#     match = re.search(date_pattern, text)
-
-#     if match:
-#         return match.group()
-
-#     return "Not specified"
-
-# # Priority detection
-# def detect_priority(text):
-
-#     text = text.lower()
-    
-#     for word in priority_words:
-#         if word in text:
-#             return "High Priority"
-#     return "Low Priority"
-
-# # Classify email
-# def classify_email(text):
-
-#     text_lower = text.lower()
-
-#     # Action detection
-#     for word in action_words:
-#         if word in text_lower:
-#             return "Action Required"
-
-#     # Meeting detection
-#     for word in meeting_words:
-#         if word in text_lower:
-#             return "Meeting / Coordination"
-
-#     # Approval detection
-#     for word in approval_words:
-#         if word in text_lower:
-#             return "Approval Needed"
-        
-#     #remove empty sentence    
-#     if not text or text.strip() == "":
-#         return "Informational"
-
-#     # DistilBERT analysis
-#     result = classifier(
-#         text[:512], 
-#         candidate_labels=labels
-#         )
-#     return result["labels"][0]
-
-
-# # Remove HTML tags
-# def clean_email(text):
-    
-#     if not text:
-#         return ""
-
-#     soup = BeautifulSoup(text, "html.parser")
-#     text = soup.get_text()
-
-#     # Remove extra spaces and symbols
-#     text = re.sub(r'\s+', ' ', text)
-
-#     return text.strip()
-
-# # Main program
-# def main():
-
-#     print("Connecting to Gmail...")
-
-#     service = authenticate_gmail()
-
-#     print("Fetching emails...")
-
-#     emails = fetch_emails(service)
-
-#     print("\nAnalyzing Emails...\n")
-
-#     tasks = [] 
-#     speech_queue = []
-
-#     for email in emails:
-
-#         cleaned_email = clean_email(email["body"])
-
-#         if not cleaned_email or cleaned_email.strip() == "":
-#             continue
-#         #Skip spam emails
-#         if is_spam(cleaned_email):
-#             continue
-#         category = classify_email(cleaned_email)
-#         deadline = extract_deadline(cleaned_email)
-#         priority = detect_priority(cleaned_email)
-
-#         task = {
-#             "subject": email["subject"],
-#             "sender": email["sender"],
-#             "category": category,
-#             "deadline": deadline,
-#             "priority": priority,
-#             "gmail_link": email["gmail_link"]
-#         }
-
-#         tasks.append(task)
-
-#         # 🗣️ SPEAK EACH EMAIL
-#         message = (
-#             f"Email from {email['sender']}. "
-#             f"Subject: {email['subject']}. "
-#             f"This is categorized as {category}. "
-#             f"Deadline is {deadline}. "
-#             f"Priority level is {priority}."
-#         )
-#         speech_queue.append(message)
-
-
-#         print("\n📊 TASK OBJECT")
-#         print(json.dumps(task, indent=4))
-
-#         print("EMAIL TEXT:")
-#         print(cleaned_email[:200])
-#         print("-" * 60)
-
-#     # ✅ All processing done, now speak
-#     print("\n🔊 Starting voice readout...\n")
-#     for message in speech_queue:
-#         speak(message)  # your existing speak() function works fine here
-
-#     speak_summary(tasks) 
-
-# if __name__ == "__main__":
-#     main()

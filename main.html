@@ -662,12 +662,13 @@ body {
     <a href="inbox.html" class="nav-item">
       <span class="nav-icon">✉</span>
       Inbox
-      <span class="nav-badge">5</span>
+      <span class="nav-badge" id="inboxCount"></span>
     </a>
     <a href="tasks.html" class="nav-item">
       <span class="nav-icon">☑</span> Tasks
     </a>
-    <div class="nav-item"><span class="nav-icon">📅</span> Calendar</div>
+    <a href="calendar.html" class="nav-item">
+      <span class="nav-icon">📅</span> Calendar</a>
   </div>
 
   <div class="nav-section" style="margin-top:8px;">
@@ -721,7 +722,6 @@ body {
           <div class="stat-num" id="stat-total">0</div>
           <div class="stat-label">Emails Today</div>
         </div>
-        <div class="stat-change up">+12%</div>
       </div>
       <div class="stat-card">
         <div class="stat-icon orange">🔥</div>
@@ -729,7 +729,6 @@ body {
           <div class="stat-num" id="stat-high">0</div>
           <div class="stat-label">High Priority</div>
         </div>
-        <div class="stat-change down">+3</div>
       </div>
       <div class="stat-card">
         <div class="stat-icon teal">✅</div>
@@ -737,7 +736,6 @@ body {
           <div class="stat-num" id="stat-medium">0</div>
           <div class="stat-label">Tasks Done</div>
         </div>
-        <div class="stat-change up">+8%</div>
       </div>
       <div class="stat-card">
         <div class="stat-icon yellow">⚡</div>
@@ -745,7 +743,6 @@ body {
           <div class="stat-num" id="stat-low">0</div>
           <div class="stat-label">Response Rate</div>
         </div>
-        <div class="stat-change up">+4%</div>
       </div>
     </div>
 
@@ -834,7 +831,10 @@ body {
             </div>
         
             <!-- Mic Button -->
-            <button class="voice-btn-card" onclick="handleVoiceBriefing()">
+            <button
+              id="voiceBtn"
+              class="voice-btn-card"
+              onclick="toggleListening()">
               <span id="voiceBtnIcon">🎙️</span>
               <span id="voiceBtnText">Tap to Speak</span>
             </button>
@@ -1039,7 +1039,7 @@ async function loadEmails() {
   console.log(emailData);
 
   // ── Update stat cards ──
-  const high   = emailData.filter(e => e.priority === "High").length;
+  const high   = emailData.filter(e => e.priority === "High" ||  e.priority === "Medium").length;
   const medium = emailData.filter(e => e.priority === "Medium").length;
   const total  = emailData.length;
 
@@ -1050,10 +1050,27 @@ async function loadEmails() {
   // are not returned by backend — keep existing placeholder numbers)
 
   // ── Update nav badge ──
-  document.querySelectorAll(".nav-badge").forEach(b => {
-    b.textContent = high > 0 ? high : "";
-    b.style.display = high > 0 ? "" : "none";
-  });
+  const importantCount = emailData.filter(e =>
+
+      e.priority === "High" ||
+
+      e.priority === "Medium"
+
+  ).length;
+
+  const inboxBadge =
+      document.getElementById("inboxCount");
+
+  if (inboxBadge) {
+
+      inboxBadge.textContent =
+          importantCount;
+
+      inboxBadge.style.display =
+          importantCount > 0
+          ? "inline-flex"
+          : "none";
+  }
 
   // ── Update donut chart percentages ──
   updateDonut(emailData);
@@ -1069,6 +1086,11 @@ async function loadEmails() {
     emailData.filter(e =>
       e.priority === "High"
       || e.priority === "Medium"
+      ||  (
+            e.priority === "Low" &&
+            !e.sender.toLowerCase().includes("newsletter") &&
+            !e.sender.toLowerCase().includes("promotion")
+          )
       || e.category === "Meeting"
       || e.category === "Approval Needed"
     ).slice(0, 15)

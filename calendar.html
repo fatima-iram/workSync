@@ -1,0 +1,529 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>WorkSync — Calendar</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@500;700&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+
+:root{
+  --bg:#f0ede4;--card:rgba(243,241,231,0.9);--card-solid:#eae7dc;
+  --border:rgba(180,170,150,0.4);--text:#1a1a1a;--muted:#777;
+  --teal:#2ecc9e;--teal-dark:#25a880;--teal-light:rgba(46,204,158,0.12);
+  --red:#e74c3c;--orange:#e67e22;--blue:#3b82f6;
+  --sw:220px;
+}
+
+body{font-family:"DM Sans",sans-serif;background:var(--bg);color:var(--text);min-height:100vh;display:flex}
+
+/* ── SIDEBAR ── */
+.sidebar{width:var(--sw);min-height:100vh;background:rgba(235,232,222,0.95);border-right:1px solid var(--border);display:flex;flex-direction:column;padding:24px 0;position:fixed;top:0;left:0;bottom:0;z-index:100}
+.sb-logo{
+    padding:20px;
+    border-bottom:1px solid var(--border);
+    margin-bottom:16px;
+    display:flex;
+    justify-content:center;
+    align-items:center;
+    min-height:80px;
+}
+.sb-logo img{
+    max-width:160px;
+    width:100%;
+    height:auto;
+    object-fit:contain;
+    mix-blend-mode:multiply;
+}
+.sb-logo .lt{
+    font-family:"Playfair Display",serif;
+    font-size:28px;
+    font-weight:700;
+    color:#1a1a1a;
+    text-align:center;
+    width:100%;
+}
+
+.sb-logo .lt span{
+    color:var(--teal);
+}
+.nav-sec{padding:0 12px;margin-bottom:6px}
+.nav-lbl{font-size:10px;font-weight:600;letter-spacing:1.2px;text-transform:uppercase;color:var(--muted);padding:0 8px;margin-bottom:5px}
+.nav-item{display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:10px;cursor:pointer;font-size:13.5px;color:#555;transition:all 0.15s;margin-bottom:2px;text-decoration:none;color:inherit}
+.nav-item:hover{background:var(--teal-light);color:var(--teal-dark)}
+.nav-item.active{background:var(--teal);color:white;font-weight:500}
+.nav-icon{font-size:15px;width:20px;text-align:center}
+.sb-bottom{margin-top:auto;padding:14px 12px 0;border-top:1px solid var(--border)}
+.user-card{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:10px;cursor:pointer;transition:background 0.15s}
+.user-card:hover{background:rgba(0,0,0,0.04)}
+.avatar{width:34px;height:34px;border-radius:50%;background:var(--teal);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;color:white;flex-shrink:0}
+.uname{font-size:13px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.uemail{font-size:11px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+/* ── MAIN ── */
+.main{margin-left:var(--sw);flex:1;display:flex;flex-direction:column;min-height:100vh}
+.topbar{height:60px;background:rgba(243,241,231,0.88);border-bottom:1px solid var(--border);display:flex;align-items:center;padding:0 28px;gap:12px;position:sticky;top:0;z-index:50;backdrop-filter:blur(8px)}
+.topbar-title{font-family:"Playfair Display",serif;font-size:18px;font-weight:700;margin-right:auto}
+
+/* ── TAB SWITCHER ── */
+.tab-bar{display:flex;align-items:center;gap:4px;background:rgba(220,215,200,0.6);border-radius:12px;padding:4px}
+.tab-btn{padding:7px 18px;border-radius:9px;font-size:13px;font-weight:500;cursor:pointer;border:none;background:transparent;color:var(--muted);transition:all 0.18s;font-family:"DM Sans",sans-serif}
+.tab-btn.active{background:white;color:var(--text);box-shadow:0 1px 6px rgba(0,0,0,0.1)}
+
+.gcal-btn{display:inline-flex;align-items:center;gap:7px;background:var(--teal);color:white;padding:7px 16px;border-radius:9px;font-size:13px;font-weight:600;text-decoration:none;transition:background 0.15s;white-space:nowrap}
+.gcal-btn:hover{background:var(--teal-dark)}
+.gcal-btn svg{width:14px;height:14px}
+
+/* ── CONTENT AREA ── */
+.content{flex:1;padding:28px;display:flex;flex-direction:column;gap:24px}
+
+/* ── CALENDAR PANEL ── */
+.cal-panel{background:var(--card);border:1px solid var(--border);border-radius:20px;overflow:hidden;box-shadow:0 4px 24px rgba(80,70,50,0.08)}
+
+.cal-header{display:flex;align-items:center;justify-content:space-between;padding:20px 24px 16px;border-bottom:1px solid var(--border)}
+.cal-month{font-family:"Playfair Display",serif;font-size:20px;font-weight:700}
+.cal-nav{display:flex;gap:6px}
+.cal-nav button{width:32px;height:32px;border-radius:8px;border:1px solid var(--border);background:white;cursor:pointer;font-size:14px;color:var(--text);transition:all 0.15s;display:flex;align-items:center;justify-content:center}
+.cal-nav button:hover{background:var(--teal);color:white;border-color:var(--teal)}
+
+.cal-grid{display:grid;grid-template-columns:repeat(7,1fr)}
+.cal-dow{padding:10px 0;text-align:center;font-size:11px;font-weight:600;letter-spacing:.6px;text-transform:uppercase;color:var(--muted);border-bottom:1px solid var(--border)}
+.cal-day{min-height:88px;padding:8px 10px;border-right:1px solid rgba(180,170,150,0.2);border-bottom:1px solid rgba(180,170,150,0.2);position:relative;cursor:pointer;transition:background 0.12s}
+.cal-day:nth-child(7n){border-right:none}
+.cal-day:hover{background:rgba(255,255,255,0.6)}
+.cal-day.other-month{opacity:.35}
+.cal-day.today .day-num{background:var(--teal);color:white;border-radius:50%;width:24px;height:24px;display:flex;align-items:center;justify-content:center;font-weight:600}
+.cal-day.selected{background:var(--teal-light)}
+.day-num{font-size:13px;font-weight:500;margin-bottom:5px;width:24px;height:24px;display:flex;align-items:center;justify-content:center}
+.day-events{display:flex;flex-direction:column;gap:3px}
+.day-chip{font-size:10px;font-weight:500;padding:2px 6px;border-radius:4px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;cursor:pointer}
+.day-chip.high{background:rgba(231,76,60,0.15);color:#c0392b}
+.day-chip.medium{background:rgba(230,126,34,0.14);color:#d35400}
+.day-chip.low{background:rgba(46,204,158,0.14);color:#25a880}
+.day-chip.gcal{border-left:2px solid var(--blue);background:rgba(59,130,246,0.09);color:#2563eb}
+.more-chip{font-size:10px;color:var(--muted);padding:1px 4px}
+
+/* ── RIGHT PANEL ── */
+.side-panel{display:flex;flex-direction:column;gap:16px;min-width:300px;max-width:300px}
+
+.panel-card{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:20px;box-shadow:0 2px 12px rgba(80,70,50,0.06)}
+.panel-title{font-size:12px;font-weight:600;letter-spacing:.8px;text-transform:uppercase;color:var(--muted);margin-bottom:14px}
+
+/* Selected day detail */
+.sel-date{font-family:"Playfair Display",serif;font-size:22px;font-weight:700;margin-bottom:4px}
+.sel-count{font-size:13px;color:var(--muted);margin-bottom:16px}
+.event-row{display:flex;align-items:flex-start;gap:10px;padding:10px 12px;border-radius:10px;background:rgba(255,255,255,0.55);border:1px solid var(--border);margin-bottom:8px;cursor:pointer;transition:all 0.14s;text-decoration:none;color:var(--text)}
+.event-row:hover{background:rgba(255,255,255,0.9);transform:translateX(2px);border-color:var(--teal)}
+.evt-dot{width:9px;height:9px;border-radius:50%;flex-shrink:0;margin-top:4px}
+.evt-dot.high{background:var(--red)}
+.evt-dot.medium{background:var(--orange)}
+.evt-dot.low{background:var(--teal)}
+.evt-dot.gcal{background:var(--blue)}
+.evt-subj{font-size:12.5px;font-weight:500;margin-bottom:2px;line-height:1.3}
+.evt-meta{font-size:11px;color:var(--muted)}
+.evt-open{font-size:11px;color:var(--teal-dark);flex-shrink:0;margin-top:2px}
+.no-events{font-size:13px;color:var(--muted);text-align:center;padding:20px 0}
+
+/* Legend */
+.legend-row{display:flex;align-items:center;gap:8px;margin-bottom:8px;font-size:12.5px}
+.legend-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0}
+
+/* Stats */
+.stat-row{display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border)}
+.stat-row:last-child{border-bottom:none;padding-bottom:0}
+.stat-label{font-size:12.5px;color:var(--muted)}
+.stat-val{font-size:14px;font-weight:600;color:var(--text)}
+
+/* GCal section */
+.gcal-section{background:linear-gradient(135deg,rgba(59,130,246,0.07),rgba(46,204,158,0.07));border:1px solid rgba(59,130,246,0.2);border-radius:14px;padding:18px;text-align:center}
+.gcal-section p{font-size:13px;color:var(--muted);line-height:1.6;margin-bottom:14px}
+.gcal-open-btn{display:inline-flex;align-items:center;gap:8px;background:var(--blue);color:white;padding:10px 22px;border-radius:10px;font-size:13px;font-weight:600;text-decoration:none;transition:all 0.15s;font-family:"DM Sans",sans-serif}
+.gcal-open-btn:hover{background:#2563eb;transform:translateY(-1px)}
+
+/* Loading */
+.loading{text-align:center;padding:40px;color:var(--muted);font-size:13px}
+.spinner{width:28px;height:28px;border:2px solid var(--border);border-top-color:var(--teal);border-radius:50%;animation:spin .7s linear infinite;margin:0 auto 12px}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* Two-column layout for cal + sidebar */
+.cal-layout{display:flex;gap:20px;align-items:flex-start}
+.cal-layout .cal-panel{flex:1;min-width:0}
+
+/* Tooltip */
+.tooltip-overlay{display:none;position:fixed;z-index:999;background:#1a1a1a;color:white;border-radius:10px;padding:12px 15px;max-width:280px;font-size:12px;pointer-events:none;line-height:1.5;box-shadow:0 8px 30px rgba(0,0,0,0.3)}
+.tooltip-overlay.show{display:block}
+</style>
+</head>
+<body>
+
+<!-- SIDEBAR -->
+<aside class="sidebar">
+  <div class="sb-logo">
+    <img src="WorkSync_logo.png" onerror="this.style.display='none';document.getElementById('cllt').style.display='block'">
+    <div class="lt" id="cllt" style="display:none">Work<span>Sync</span></div>
+  </div>
+  <div class="nav-sec">
+    <div class="nav-lbl">Main</div>
+    <a href="main.html" class="nav-item"><span class="nav-icon">⊞</span> Dashboard</a>
+    <a href="inbox.html"     class="nav-item"><span class="nav-icon">✉</span> Inbox</a>
+    <a href="tasks.html"     class="nav-item"><span class="nav-icon">☑</span> Tasks</a>
+    <a href="calendar.html"  class="nav-item active"><span class="nav-icon">📅</span> Calendar</a>
+  </div>
+  <div class="nav-sec" style="margin-top:8px">
+    <div class="nav-lbl">Insights</div>
+    <div class="nav-item"><span class="nav-icon">📊</span> Analytics</div>
+    <div class="nav-item"><span class="nav-icon">⚡</span> Automations</div>
+  </div>
+  <div class="sb-bottom">
+    <div class="user-card">
+      <div class="avatar" id="userAv">U</div>
+      <div style="overflow:hidden">
+        <div class="uname" id="uname">User</div>
+        <div class="uemail" id="uemail">—</div>
+      </div>
+    </div>
+  </div>
+</aside>
+
+<!-- MAIN -->
+<div class="main">
+  <header class="topbar">
+    <div class="topbar-title">📅 Calendar</div>
+    <!-- Tab switcher: WorkSync ↔ Google Calendar -->
+    <div class="tab-bar">
+      <button class="tab-btn active" id="tabWS" onclick="switchTab('worksync')">WorkSync</button>
+      <button class="tab-btn" id="tabGC" onclick="switchTab('gcal')">Google Calendar</button>
+    </div>
+    <a href="https://calendar.google.com" target="_blank" class="gcal-btn">
+      <svg viewBox="0 0 24 24" fill="currentColor"><path d="M19.5 3.5h-1V2h-1.5v1.5H7V2H5.5v1.5h-1A1.5 1.5 0 0 0 3 5v15a1.5 1.5 0 0 0 1.5 1.5h15A1.5 1.5 0 0 0 21 20V5a1.5 1.5 0 0 0-1.5-1.5zm0 16.5h-15V9h15v11zM4.5 7.5v-2H6V7h12V5.5h1.5v2h-15z"/></svg>
+      Open in Google Calendar ↗
+    </a>
+  </header>
+
+  <!-- ── WORKSYNC CALENDAR VIEW ── -->
+  <div id="viewWS" class="content">
+    <div id="loadingState" class="loading">
+      <div class="spinner"></div>
+      Loading your calendar events…
+    </div>
+
+    <div id="calMain" style="display:none">
+      <div class="cal-layout">
+
+        <!-- Month Grid -->
+        <div class="cal-panel">
+          <div class="cal-header">
+            <div class="cal-month" id="calMonthLabel">—</div>
+            <div class="cal-nav">
+              <button onclick="changeMonth(-1)">‹</button>
+              <button onclick="changeMonth(0)" style="font-size:11px;padding:0 8px;width:auto">Today</button>
+              <button onclick="changeMonth(1)">›</button>
+            </div>
+          </div>
+          <!-- Days of week -->
+          <div class="cal-grid" id="calDOW"></div>
+          <!-- Day cells -->
+          <div class="cal-grid" id="calDays"></div>
+        </div>
+
+        <!-- Right sidebar panel -->
+        <div class="side-panel">
+
+          <!-- Selected day detail -->
+          <div class="panel-card">
+            <div class="sel-date" id="selDate">—</div>
+            <div class="sel-count" id="selCount">Select a day to see events</div>
+            <div id="selEvents"></div>
+          </div>
+
+          <!-- Stats -->
+          <div class="panel-card">
+            <div class="panel-title">This Month</div>
+            <div class="stat-row"><span class="stat-label">Total events</span><span class="stat-val" id="statTotal">—</span></div>
+            <div class="stat-row"><span class="stat-label">🔴 High priority</span><span class="stat-val" id="statHigh">—</span></div>
+            <div class="stat-row"><span class="stat-label">🟠 Medium priority</span><span class="stat-val" id="statMed">—</span></div>
+            <div class="stat-row"><span class="stat-label">🟢 Low priority</span><span class="stat-val" id="statLow">—</span></div>
+            <div class="stat-row"><span class="stat-label">📅 In Google Cal</span><span class="stat-val" id="statGcal">—</span></div>
+          </div>
+
+          <!-- Legend -->
+          <div class="panel-card">
+            <div class="panel-title">Legend</div>
+            <div class="legend-row"><div class="legend-dot" style="background:var(--red)"></div> High Priority</div>
+            <div class="legend-row"><div class="legend-dot" style="background:var(--orange)"></div> Medium Priority</div>
+            <div class="legend-row"><div class="legend-dot" style="background:var(--teal)"></div> Low Priority</div>
+            <div class="legend-row"><div class="legend-dot" style="background:var(--blue)"></div> Synced to Google Calendar</div>
+          </div>
+
+          <!-- Open Google Calendar -->
+          <div class="gcal-section">
+            <div style="font-size:28px;margin-bottom:8px">🗓️</div>
+            <p>High &amp; Medium priority events are automatically added to your Google Calendar with reminders.</p>
+            <a href="https://calendar.google.com" target="_blank" class="gcal-open-btn">Open Google Calendar ↗</a>
+          </div>
+
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── GOOGLE CALENDAR EMBED VIEW ── -->
+  <div id="viewGC" class="content" style="display:none">
+    <div class="panel-card" style="padding:0;overflow:hidden;border-radius:20px;flex:1;min-height:600px">
+      <div style="padding:18px 24px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between">
+        <div style="font-family:'Playfair Display',serif;font-size:16px;font-weight:700">Google Calendar — Live View</div>
+        <a href="https://calendar.google.com" target="_blank" class="gcal-btn" style="font-size:12px;padding:6px 14px">Open full screen ↗</a>
+      </div>
+      <iframe id="gcalFrame"
+        src="https://calendar.google.com/calendar/embed?showTitle=0&showNav=1&showDate=1&showPrint=0&showTabs=1&showCalendars=0&mode=MONTH&bgcolor=%23f0ede4&ctz=Asia%2FKolkata"
+        style="width:100%;height:620px;border:none"
+        frameborder="0" scrolling="no"
+        sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-top-navigation">
+      </iframe>
+      <div style="padding:14px 24px;background:rgba(240,237,228,0.5);border-top:1px solid var(--border);font-size:12px;color:var(--muted)">
+        ℹ️ If Google Calendar doesn't load, your browser may be blocking the embed — click "Open full screen" above to view it directly.
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Tooltip -->
+<div class="tooltip-overlay" id="tooltip"></div>
+
+<script>
+const API = "http://127.0.0.1:5000";
+const DAYS_OF_WEEK = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
+const MONTHS = ["January","February","March","April","May","June","July","August","September","October","November","December"];
+
+let allEvents   = [];
+let currentYear, currentMonth;
+let selectedDay = null;
+
+// ── Auth check & user UI ─────────────────────────────────────
+const email = localStorage.getItem("userEmail") || "";
+if (!email) { window.location.href = "index.html"; }
+const raw  = email.split("@")[0];
+const name = raw.charAt(0).toUpperCase() + raw.slice(1);
+document.getElementById("uname").textContent  = name;
+document.getElementById("uemail").textContent = email;
+document.getElementById("userAv").textContent = (raw[0]||"U").toUpperCase();
+
+// ── Tab switcher ─────────────────────────────────────────────
+function switchTab(tab) {
+  document.getElementById("tabWS").classList.toggle("active", tab === "worksync");
+  document.getElementById("tabGC").classList.toggle("active", tab === "gcal");
+  document.getElementById("viewWS").style.display = tab === "worksync" ? "" : "none";
+  document.getElementById("viewGC").style.display = tab === "gcal"     ? "" : "none";
+}
+
+// ── Date helpers ─────────────────────────────────────────────
+function today() {
+  const d = new Date();
+  return { y: d.getFullYear(), m: d.getMonth(), d: d.getDate() };
+}
+
+/**
+ * Try to parse a deadline string into a JS Date.
+ * Supports: "Tonight", "Today", "Tomorrow",
+ * ISO strings, and common formats like "15 Jun 2025", "06/15/2025".
+ */
+function parseDeadline(dl) {
+  if (!dl || dl === "No deadline found") return null;
+  const now = new Date();
+  if (dl === "Tonight" || dl === "Today")   return new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  if (dl === "Tomorrow") { const t = new Date(now); t.setDate(t.getDate()+1); return t; }
+  // Try native parse first
+  const p = new Date(dl);
+  if (!isNaN(p)) return p;
+  // Try dateparser-style: "15 Jun 2025" or "Jun 15 2025"
+  const m = dl.match(/(\d{1,2})[\/\-\s](\w+)[\/\-\s](\d{4})|(\w+)\s+(\d{1,2})[,\s]+(\d{4})/i);
+  if (m) { const pp = new Date(dl); if (!isNaN(pp)) return pp; }
+  return null;
+}
+
+// ── Load events from API ─────────────────────────────────────
+async function loadEvents() {
+  try {
+    // Try /calendar/events first, fall back to /emails
+    let data;
+    try {
+      const r = await fetch(`${API}/calendar/events`, { credentials: "include" });
+      if (r.ok) { data = await r.json(); allEvents = data.all || data.events || []; }
+    } catch(_) {}
+
+    if (!allEvents.length) {
+      const r2 = await fetch(`${API}/emails`, { credentials: "include" });
+      if (r2.ok) { const d2 = await r2.json(); allEvents = d2.emails || []; }
+    }
+  } catch(e) {
+    console.warn("Could not load events:", e.message);
+  }
+
+  const td = today();
+  currentYear  = td.y;
+  currentMonth = td.m;
+
+  document.getElementById("loadingState").style.display = "none";
+  document.getElementById("calMain").style.display = "";
+
+  renderCalendar();
+  selectDay(td.y, td.m, td.d);
+  updateStats();
+}
+
+// ── Render calendar grid ─────────────────────────────────────
+function renderCalendar() {
+  document.getElementById("calMonthLabel").textContent =
+    `${MONTHS[currentMonth]} ${currentYear}`;
+
+  // DOW headers
+  const dowEl = document.getElementById("calDOW");
+  dowEl.innerHTML = DAYS_OF_WEEK.map(d => `<div class="cal-dow">${d}</div>`).join("");
+
+  const daysEl = document.getElementById("calDays");
+  daysEl.innerHTML = "";
+
+  const firstDay = new Date(currentYear, currentMonth, 1).getDay(); // 0=Sun
+  const daysInMonth = new Date(currentYear, currentMonth+1, 0).getDate();
+  const daysInPrev  = new Date(currentYear, currentMonth, 0).getDate();
+  const td = today();
+
+  // Build an event map: "YYYY-MM-DD" → [events]
+  const evMap = {};
+  allEvents.forEach(ev => {
+    const dt = parseDeadline(ev.deadline);
+    if (!dt) return;
+    const key = `${dt.getFullYear()}-${String(dt.getMonth()+1).padStart(2,"0")}-${String(dt.getDate()).padStart(2,"0")}`;
+    if (!evMap[key]) evMap[key] = [];
+    evMap[key].push(ev);
+  });
+
+  // Prev month padding
+  for (let i = firstDay - 1; i >= 0; i--) {
+    daysEl.innerHTML += `<div class="cal-day other-month"><div class="day-num">${daysInPrev - i}</div></div>`;
+  }
+
+  // Current month days
+  for (let d = 1; d <= daysInMonth; d++) {
+    const isToday = (d === td.d && currentMonth === td.m && currentYear === td.y);
+    const isSel   = (selectedDay && selectedDay.d === d && selectedDay.m === currentMonth && selectedDay.y === currentYear);
+    const key = `${currentYear}-${String(currentMonth+1).padStart(2,"0")}-${String(d).padStart(2,"0")}`;
+    const dayEvs = evMap[key] || [];
+
+    let chipsHtml = "";
+    const show = dayEvs.slice(0, 2);
+    const more = dayEvs.length - 2;
+    show.forEach(ev => {
+      const cls = ev.cal_link ? "gcal" : (ev.priority || "low").toLowerCase();
+      const subj = (ev.subject || "").substring(0, 22) + (ev.subject && ev.subject.length > 22 ? "…" : "");
+      chipsHtml += `<div class="day-chip ${cls}" title="${ev.subject || ""}">${subj}</div>`;
+    });
+    if (more > 0) chipsHtml += `<div class="more-chip">+${more} more</div>`;
+
+    daysEl.innerHTML += `
+      <div class="cal-day ${isToday ? "today" : ""} ${isSel ? "selected" : ""}"
+           onclick="selectDay(${currentYear},${currentMonth},${d})"
+           data-y="${currentYear}" data-m="${currentMonth}" data-d="${d}">
+        <div class="day-num">${d}</div>
+        <div class="day-events">${chipsHtml}</div>
+      </div>`;
+  }
+
+  // Next month padding
+  const totalCells = firstDay + daysInMonth;
+  const trailing   = totalCells % 7 === 0 ? 0 : 7 - (totalCells % 7);
+  for (let d = 1; d <= trailing; d++) {
+    daysEl.innerHTML += `<div class="cal-day other-month"><div class="day-num">${d}</div></div>`;
+  }
+}
+
+// ── Change month ─────────────────────────────────────────────
+function changeMonth(dir) {
+  if (dir === 0) {
+    const td = today();
+    currentYear  = td.y;
+    currentMonth = td.m;
+  } else {
+    currentMonth += dir;
+    if (currentMonth < 0)  { currentMonth = 11; currentYear--; }
+    if (currentMonth > 11) { currentMonth = 0;  currentYear++; }
+  }
+  renderCalendar();
+}
+
+// ── Select a day ─────────────────────────────────────────────
+function selectDay(y, m, d) {
+  selectedDay = { y, m, d };
+
+  const dateLabel = new Date(y, m, d).toLocaleDateString("en-IN", {
+    weekday: "long", year: "numeric", month: "long", day: "numeric"
+  });
+  document.getElementById("selDate").textContent = dateLabel;
+
+  // Find events for this day
+  const evMap = buildEvMap();
+  const key   = `${y}-${String(m+1).padStart(2,"0")}-${String(d).padStart(2,"0")}`;
+  const dayEvs = evMap[key] || [];
+
+  document.getElementById("selCount").textContent =
+    dayEvs.length ? `${dayEvs.length} event${dayEvs.length > 1 ? "s" : ""}` : "No events";
+
+  const el = document.getElementById("selEvents");
+  if (!dayEvs.length) {
+    el.innerHTML = `<div class="no-events">No emails/events on this day</div>`;
+  } else {
+    el.innerHTML = dayEvs.map(ev => {
+      const cls  = ev.cal_link ? "gcal" : (ev.priority || "low").toLowerCase();
+      const href = ev.cal_link || ev.link || "#";
+      return `
+        <a class="event-row" href="${href}" target="_blank">
+          <div class="evt-dot ${cls}"></div>
+          <div style="flex:1;overflow:hidden">
+            <div class="evt-subj">${ev.subject || "No subject"}</div>
+            <div class="evt-meta">${ev.priority || "—"} · ${ev.category || "—"}</div>
+            <div class="evt-meta" style="margin-top:2px">${ev.summary ? ev.summary.substring(0,60)+"…" : ""}</div>
+          </div>
+          <div class="evt-open">${ev.cal_link ? "📅" : "✉"}</div>
+        </a>`;
+    }).join("");
+  }
+
+  // Highlight selected on grid
+  renderCalendar();
+}
+
+// ── Build event map ──────────────────────────────────────────
+function buildEvMap() {
+  const evMap = {};
+  allEvents.forEach(ev => {
+    const dt = parseDeadline(ev.deadline);
+    if (!dt) return;
+    const key = `${dt.getFullYear()}-${String(dt.getMonth()+1).padStart(2,"0")}-${String(dt.getDate()).padStart(2,"0")}`;
+    if (!evMap[key]) evMap[key] = [];
+    evMap[key].push(ev);
+  });
+  return evMap;
+}
+
+// ── Update stats panel ───────────────────────────────────────
+function updateStats() {
+  // Filter to current month
+  const monthEvs = allEvents.filter(ev => {
+    const dt = parseDeadline(ev.deadline);
+    if (!dt) return false;
+    return dt.getFullYear() === currentYear && dt.getMonth() === currentMonth;
+  });
+
+  document.getElementById("statTotal").textContent = monthEvs.length;
+  document.getElementById("statHigh").textContent  = monthEvs.filter(e => e.priority === "High").length;
+  document.getElementById("statMed").textContent   = monthEvs.filter(e => e.priority === "Medium").length;
+  document.getElementById("statLow").textContent   = monthEvs.filter(e => e.priority === "Low").length;
+  document.getElementById("statGcal").textContent  = monthEvs.filter(e => e.cal_link).length;
+}
+
+// ── Boot ─────────────────────────────────────────────────────
+loadEvents();
+</script>
+</body>
+</html>
